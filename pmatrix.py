@@ -1,15 +1,29 @@
+#!/usr/bin/env python3
+
 import curses, random, time
 from collections import deque
 from dataclasses import dataclass
+from typing import Final, Protocol, cast
 
-SPEED_MUL: float = 2.0
-FPS: int = 120
-SYMBOLS: list[str] = list(
+SPEED_MUL: Final[float] = 2.0
+FPS: Final[int] = 120
+SYMBOLS: Final[list[str]] = list(
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "abcdefghijklmnopqrstuvwxyz"
     "0123456789"
     "!@#$%^&*()-_=+[]{};:'\",.<>?/\\|`~"
 )
+
+class WindowLike(Protocol):
+    def getmaxyx(self) -> tuple[int, int]: ...
+    def getch(self) -> int: ...
+    def erase(self) -> None: ...
+    def addch(self, y: int, x: int, ch: str, attr: int = 0) -> None: ...
+    def addstr(self, y: int, x: int, s: str) -> None: ...
+    def nodelay(self, flag: bool) -> None: ...
+    def keypad(self, flag: bool) -> None: ...
+    def bkgd(self, ch: str, attr: int) -> None: ...
+    def refresh(self) -> None: ...
 
 @dataclass
 class Drop:
@@ -34,7 +48,7 @@ class State:
     last: float
 
 def init_drops(width: int, height: int) -> list[Drop]:
-    drops = []
+    drops: list[Drop] = []
     for x in range(width):
         drops.append(new_drop(x, height))
     return drops
@@ -45,7 +59,7 @@ def new_drop(x: int, height: int) -> Drop:
     length = random.randint(max(4, height // 4), max(6, height * 2 // 3))
     return Drop(x=x, y=y0, speed=speed, length=length, trail=deque(maxlen=length))
 
-def setup(stdscr: curses.window, SPEED_MUL: float, FPS: int) -> State:
+def setup(stdscr: WindowLike, SPEED_MUL: float, FPS: int) -> State:
 
     curses.curs_set(0)
     stdscr.nodelay(True)
@@ -103,7 +117,7 @@ def setup(stdscr: curses.window, SPEED_MUL: float, FPS: int) -> State:
         last=last,
     )
 
-def handle_input(stdscr: curses.window, s: State) -> bool:
+def handle_input(stdscr: WindowLike, s: State) -> bool:
     ch = stdscr.getch()
     
     if ch == -1:
@@ -131,7 +145,7 @@ def handle_input(stdscr: curses.window, s: State) -> bool:
 
     return True
 
-def handle_resize(stdscr: curses.window, s: State) -> None:
+def handle_resize(stdscr: WindowLike, s: State) -> None:
     h2, w2 = stdscr.getmaxyx()
     if (h2, w2) != (s.height, s.width):
         s.height, s.width = h2, w2
@@ -152,7 +166,7 @@ def rainbow_recolor_all(s: State) -> None:
             maxlen=d.trail.maxlen
         )
 
-def update_and_draw(stdscr: curses.window, s: State, dt: float) -> None:
+def update_and_draw(stdscr: WindowLike, s: State, dt: float) -> None:
     for d in s.drops:
         old_head_row = int(d.y)
         d.y += d.speed * s.speed_mul * dt
@@ -201,7 +215,7 @@ def update_and_draw(stdscr: curses.window, s: State, dt: float) -> None:
             except curses.error:
                 pass
 
-def draw_hint(stdscr: curses.window, s: State) -> None:
+def draw_hint(stdscr: WindowLike, s: State) -> None:
     hint = f" q:quit  r:reset  0-9:speed x{s.speed_mul:.1f} !-&:color {s.tail_pair[1]} b:bold_front {s.bold_front}"
     if s.height > 1:
         try:
@@ -215,22 +229,23 @@ def tick_time(s: State) -> float:
     s.last = now
     return min(dt, 0.1)
 
+
 def run(stdscr: curses.window) -> None:
-    s = setup(stdscr, SPEED_MUL, FPS)
+    screen = cast(WindowLike, stdscr)
+
+    s = setup(screen, SPEED_MUL, FPS)
 
     while True:
         dt = tick_time(s)
 
-        if not handle_input(stdscr, s):
+        if not handle_input(screen, s):
             break
 
-        handle_resize(stdscr, s)
+        handle_resize(screen, s)
+        update_and_draw(screen, s, dt)
+        draw_hint(screen, s)
 
-        update_and_draw(stdscr, s, dt)
-
-        draw_hint(stdscr, s)
-
-        stdscr.refresh()
+        screen.refresh()
         curses.napms(s.frame_ms)
 
 def main():
