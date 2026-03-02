@@ -229,7 +229,6 @@ def tick_time(s: State) -> float:
     s.last = now
     return min(dt, 0.1)
 
-
 def run(stdscr: curses.window) -> None:
     screen = cast(WindowLike, stdscr)
 
