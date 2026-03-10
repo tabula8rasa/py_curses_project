@@ -28,7 +28,7 @@ class Particle:
         self.show_head: bool = True
         self.head_ch: str = random.choice(config.head_frames)
         self.head_age: int = 0
-        self.head_change_after: int = randomizer.random_change_delay(config.head_change_base, cfg.head_change_delta)
+        self.head_change_after: int = randomizer.random_change_delay(config.head_change_base, config.head_change_delta)
         self.death_after: int = randomizer.random_death_after()
         self.trail: deque[TailPoint] = deque(maxlen=config.tail_len)
 
@@ -55,11 +55,11 @@ class Particle:
                             attr |= curses. A_BOLD
                         self.stdscr.addch(sy, sx, point.ch, attr)
                     else:
-                        stdscr.addrch(sy, sx, point.ch)
+                        self.stdscr.addch(sy, sx, point.ch)
                 except curses.error:
                     pass
 
-    def draw_head(self):
+    def draw_head(self) -> None:
         if not self.show_head:
             return
         
@@ -76,6 +76,46 @@ class Particle:
                 pass
         else:
             self.show_head = False
+
+    def update_state(self) -> None:
+        if not self.alive:
+            return 
+        
+        self.age += 1
+
+
+        if self.age < self.death_after:
+            self._add_tail_point()
+            self._update_motion()
+        else:
+            self._fade_particle()
+
+        self._update_tail_symbols()
+        self._update_head_symbol()
+
+
+    def _add_tail_point(self) -> None:
+        self.trail.appendleft(
+            TailPoint(
+            x=self.x,
+            y=self.y,
+            ch=random.choice(self.config.tail_frames),
+            age=0,
+            change_after=self.randomizer.random_change_delay(self.config.tail_change_base, self.config.tail_change_delta),
+        )
+    )
+
+    def _update_motion(self) -> None:
+        self.x += self.vx * self.config.dt
+        self.y += self.vy * self.config.dt
+        self.vy += self.config.g * self.config.dt
+
+    def _fade_particle(self) -> None:
+        self.show_head = False
+        if self.trail:
+            self.trail.pop()
+        else:
+            self.alive = False
 
 @dataclass
 class Config():
@@ -190,18 +230,32 @@ class Timer():
 
 
 class Firework():
-    def __init__(self, config: Config, setup: ScreenMapper, randomizer: Randomizer):
+    def __init__(self, config: Config, setup: ScreenMapper, randomizer: Randomizer, stdscr: curses.window):
         self.particles: list[Particle] = []
 
         for i in range(config.num_particles):
             phi = 2.0 * math.pi * i / config.num_particles
             v = random.uniform(config.v_min, config.v)
-            self.particles.append(Particle(setup. phi, v, config, randomizer))
+            self.particles.append(Particle(phi, v, config, setup, randomizer, stdscr))
     
     def render_firework(self):
         for particle in self.particles:
             if particle.alive:
                 particle.render_particle()
+
+    def update_particles(self):
+        alive_count = 0
+
+        for particle in self.particles:
+            if not particle.alive:
+                continue
+
+            particle.update_state()
+
+            if particle.alive:
+                alive_count += 1
+        
+        # return alive_count
 
 
 def run(stdscr: curses.window) -> None:
@@ -213,7 +267,7 @@ def run(stdscr: curses.window) -> None:
     setup = ScreenMapper(stdscr, config)
     randoomizer = Randomizer(config, rnd)
 
-    firework = Firework(config, setup, randoomizer)
+    firework = Firework(config, setup, randoomizer, stdscr)
 
     timer = Timer(config)
     
@@ -226,9 +280,10 @@ def run(stdscr: curses.window) -> None:
 
         stdscr.erase()
 
+        firework.update_particles()
         firework.render_firework()
 
+        stdscr.refresh()
 
 if __name__ == "__main__":
-    ...
-    # curses.wrapper(run)
+    curses.wrapper(run)
