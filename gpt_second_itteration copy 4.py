@@ -153,17 +153,17 @@ class Config():
     dt: float = field(init=False)               # длительность одного кадра
 
     scale_x: float = 4.0                        # масштаб по X
-    scale_y: float = 3.0                        # масштаб по Y
+    scale_y: float = 2.5                        # масштаб по Y
     
     coef_to_cx: float = 0.5
     coef_to_cy: float = 0.4
 
     g: float = 9.81                             # ускорение свободного падения
 
-    v_min: float = 10.0                         # минимальная начальная скорость
-    v: float = 10.0                             # базовая начальная скорость
+    v_min: float = 0.0                         # минимальная начальная скорость
+    v: float = 16.0                             # базовая начальная скорость
 
-    num_particles: int = 50                    # число частиц
+    num_particles: int = 150                    # число частиц
 
     head_frames: list[str] = field(
         default_factory=lambda: list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -173,7 +173,7 @@ class Config():
         default_factory=lambda: list("0123456789")
     )                                           # символы хвоста
 
-    tail_len: int = 30                          # длина хвоста
+    tail_len: int = 12                          # длина хвоста
 
     tail_change_base: int = 20                  # базовый интервал смены хвоста
     tail_change_delta: int = 5                  # разброс интервала хвоста
@@ -181,18 +181,18 @@ class Config():
     head_change_base: int = 20                  # базовый интервал смены головы
     head_change_delta: int = 5                  # разброс интервала головы
 
-    death_base: int = 90                        # базовое время жизни
-    death_delta: int = 0                       # разброс времени жизни
+    death_base: int = 80                        # базовое время жизни
+    death_delta: int = 5                       # разброс времени жизни
 
-    time_delay_to_a_new_firework: int = 100
+    time_delay_to_a_new_firework: int = 80
 
     firework_color_schemas: list[list[int]] = field(
-        default_factory=lambda: [[6, 9, 12],[0],[0, 3],[18],[12, 15, 18]])
+        default_factory=lambda: [[6, 9, 12],[0],[0, 3],[18],[12, 15, 18], [0, 3, 6, 9, 12, 15, 18]])
     
     fame_for_firework_to_appear: dict[str, int] =field(
         default_factory=lambda: {
-        '-x': -10,
-        'x': 10,
+        '-x': -15,
+        'x': 15,
         '-y': -5,
         'y': 0
         }
@@ -251,16 +251,6 @@ class CursesSetup:
             curses.init_pair(19, curses.COLOR_WHITE, -1)
             curses.init_pair(20, curses.COLOR_WHITE, -1)
             curses.init_pair(21, curses.COLOR_WHITE, -1)
-
-            # # Электрический: white -> cyan -> magenta
-            # curses.init_pair(22, curses.COLOR_WHITE, -1)
-            # curses.init_pair(23, curses.COLOR_CYAN, -1)
-            # curses.init_pair(24, curses.COLOR_MAGENTA, -1)
-
-            # # По умолчанию
-            # curses.init_pair(25, curses.COLOR_YELLOW, -1)
-            # curses.init_pair(26, curses.COLOR_RED, -1)
-            # curses.init_pair(27, curses.COLOR_MAGENTA, -1)
 
 
 class ScreenMapper:
@@ -366,7 +356,8 @@ def run(stdscr: curses.window) -> None:
     fireworks = [Firework(config, setup, randomizer, stdscr)]
 
     timer = Timer(config)
-    
+    delay = config.time_delay_to_a_new_firework
+
     while True:
         timer.wait_frame()
         timer.counter += 1
@@ -384,9 +375,11 @@ def run(stdscr: curses.window) -> None:
             
         stdscr.refresh()
 
-        if timer.counter == config.time_delay_to_a_new_firework:
+        if timer.counter == delay:
             fireworks.append(Firework(config, setup, randomizer, stdscr))
             timer.counter = 0
+            delay = int(config.time_delay_to_a_new_firework - (random.random()*40))
+
 
 
 if __name__ == "__main__":
