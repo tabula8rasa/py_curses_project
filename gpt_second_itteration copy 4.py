@@ -15,7 +15,6 @@ class TailPoint:
     change_after: int = 20
 
 
-@dataclass
 class Particle:
     def __init__(self, phi:float, v: float, config: Config, setup: ScreenMapper, randomizer: Randomizer, stdscr: curses.window, cx: float , cy: float):
 
@@ -37,11 +36,11 @@ class Particle:
         self.randomizer = randomizer
         self.stdscr = stdscr
 
-    def render_particle(self):
+    def render_particle(self) -> None:
         self.draw_tail()
         self.draw_head()
 
-    def draw_tail(self):
+    def draw_tail(self) -> None:
         for i, point in enumerate(self.trail):
             sx = self.setup.to_screen_x(point.x)
             sy = self.setup.to_screen_y(point.y)
@@ -265,16 +264,12 @@ class Firework():
                 particle.render_particle()
 
     def update_particles(self):
-        alive_count = 0
 
         for particle in self.particles:
             if not particle.alive:
                 continue
 
             particle.update_state()
-
-            if particle.alive:
-                alive_count += 1
         
 
 
@@ -285,9 +280,9 @@ def run(stdscr: curses.window) -> None:
     config = Config()
     rnd = random.Random(42)
     setup = ScreenMapper(stdscr, config)
-    randoomizer = Randomizer(config, rnd)
+    randomizer = Randomizer(config, rnd)
 
-    fireworks = [Firework(config, setup, randoomizer, stdscr)]
+    fireworks = [Firework(config, setup, randomizer, stdscr)]
 
     timer = Timer(config)
     
