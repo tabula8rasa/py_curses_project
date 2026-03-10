@@ -17,7 +17,7 @@ class TailPoint:
 
 @dataclass
 class Particle:
-    def __init__(self, phi:float, v: float, config: Config, setup: ScreenMapper, randomizer: Randomizer):
+    def __init__(self, phi:float, v: float, config: Config, setup: ScreenMapper, randomizer: Randomizer, stdscr: curses.window):
 
         self.x = setup.cx
         self.y = setup.cy
@@ -35,15 +35,30 @@ class Particle:
         self.config = config
         self.setup = setup
         self.randomizer = randomizer
+        self.stdscr = stdscr
 
     def render_particle(self):
         self.draw_tail()
         self.draw_head()
 
     def draw_tail(self):
-        for i. point in enumerate(self.trail):
+        for i, point in enumerate(self.trail):
             sx = self.setup.to_screen_x(point.x)
             sy = self.setup.to_screen_y(point.y)
+
+            if 0 <= sy < self.setup.height and 0 <= sx < self.setup.width:
+                try:
+                    if curses.has_colors():
+                        pair = 2 if i < self.config.tail_len // 2 else 3
+                        attr = curses.color_pair(pair)
+                        if i < 2:
+                            attr |= curses. A_BOLD
+                        self.stdscr.addch(sy, sx, point.ch, attr)
+                    else:
+                        stdscr.addrch(sy, sx, point.ch)
+                except curses.error:
+                    pass
+
 
 @dataclass
 class Config():
