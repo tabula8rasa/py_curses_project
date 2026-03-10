@@ -307,7 +307,7 @@ class Firework():
         self.particles: list[Particle] = []
         self.cx = setup.cx + random.randint(-10, 10)
         self.cy = setup.cy + random.randint(-10, 10)
-        self.color_scheme = randomizer.rnd.randint(0, config.color_scheme_number)
+        self.color_scheme = randomizer.rnd.choice([0,3,6,9,12,15,18,21,24])
         
         for i in range(config.num_particles):
             phi = 2.0 * math.pi * i / config.num_particles
