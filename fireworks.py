@@ -42,7 +42,7 @@ class Particle:
         self.head_change_after: int = randomizer.random_change_delay(config.head_change_base, config.head_change_delta)
         self.death_after: int = randomizer.random_death_after()
         self.trail: deque[TailPoint] = deque(maxlen=config.tail_len)
-        self.color_scheme = randomizer.rnd.choice(color_scheme_bunch) if color_scheme_bunch[0] > 21 else color_scheme_bunch[0]
+        self.color_scheme = randomizer.rnd.choice(color_scheme_bunch) if len(color_scheme_bunch) == 1 else color_scheme_bunch[0]
         self.config = config
         self.setup = setup
         self.randomizer = randomizer
@@ -67,9 +67,9 @@ class Particle:
                         attr = curses.color_pair(pair)
                         if i < 2:
                             attr |= curses. A_BOLD
-                        self.stdscr.addch(sy, sx, point.ch, attr)
+                        self.stdscr.addch(sy, sx, point.ch, attr | curses.A_BOLD)
                     else:
-                        self.stdscr.addch(sy, sx, point.ch)
+                        self.stdscr.addch(sy, sx, point.ch, curses.A_BOLD)
                 except curses.error:
                     pass
 
@@ -171,7 +171,7 @@ class Config():
         default_factory=lambda: list("0123456789")
     )                                           # символы хвоста
 
-    tail_len: int = 10                         # длина хвоста
+    tail_len: int = 15                         # длина хвоста
 
     tail_change_base: int = 20                  # базовый интервал смены хвоста
     tail_change_delta: int = 5                  # разброс интервала хвоста
@@ -179,13 +179,13 @@ class Config():
     head_change_base: int = 20                  # базовый интервал смены головы
     head_change_delta: int = 5                  # разброс интервала головы
 
-    death_base: int = 180                        # базовое время жизни
+    death_base: int = 120                        # базовое время жизни
     death_delta: int = 5                        # разброс времени жизни
 
-    time_delay_to_a_new_firework: int = 180
+    time_delay_to_a_new_firework: int = 150
 
     firework_color_schemas: list[list[int]] = field(
-        default_factory=lambda: [[6, 9, 12],[0],[0, 3],[18],[12, 15, 18], [0, 3, 6, 9, 12, 15, 18], [21], [24], [27]]
+        default_factory=lambda: [[6,9,12], [0], [0,3], [18], [12,15,18], [0,3,6,9,12,15,18], [21], [24], [27]]
     )
 
     def __post_init__(self):
@@ -283,7 +283,7 @@ class Randomizer:
         )
     
     
-class Timer():
+class Timer:
     def __init__(self, config: Config):
         self.last = time.perf_counter()
         self.config = config
@@ -300,7 +300,7 @@ class Timer():
         self.last = now
 
 
-class Firework():
+class Firework:
     def __init__(self, config: Config, setup: ScreenMapper, randomizer: Randomizer, stdscr: curses.window):
 
         self.cx = random.randint(int(setup.world_width_m * 0.2), int(setup.world_width_m * 0.8))
