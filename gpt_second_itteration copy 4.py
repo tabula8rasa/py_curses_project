@@ -326,7 +326,6 @@ class Firework():
             particle.update_state()
         
 
-
 def run(stdscr: curses.window) -> None:
 
     CursesSetup.setup_screen(stdscr)
