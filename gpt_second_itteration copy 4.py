@@ -16,7 +16,16 @@ class TailPoint:
 
 
 class Particle:
-    def __init__(self, phi:float, v: float, config: Config, setup: ScreenMapper, randomizer: Randomizer, stdscr: curses.window, cx: float , cy: float):
+    def __init__(self,
+        phi:float, 
+        v: float, 
+        config: Config, 
+        setup: ScreenMapper, 
+        randomizer: Randomizer, 
+        stdscr: curses.window, 
+        cx: float, 
+        cy: float
+        ):
 
         self.x = cx
         self.y = cy
@@ -36,11 +45,11 @@ class Particle:
         self.randomizer = randomizer
         self.stdscr = stdscr
 
-    def render_particle(self) -> None:
-        self.draw_tail()
-        self.draw_head()
+    def render_particle(self, color_scheme: int) -> None:
+        self.draw_tail(color_scheme)
+        self.draw_head(color_scheme)
 
-    def draw_tail(self) -> None:
+    def draw_tail(self, color_scheme:int) -> None:
         for i, point in enumerate(self.trail):
             sx = self.setup.to_screen_x(point.x)
             sy = self.setup.to_screen_y(point.y)
@@ -48,7 +57,7 @@ class Particle:
             if 0 <= sy < self.setup.height and 0 <= sx < self.setup.width:
                 try:
                     if curses.has_colors():
-                        pair = 2 if i < self.config.tail_len // 2 else 3
+                        pair = color_scheme + 2 if i < self.config.tail_len // 2 else color_scheme + 3
                         attr = curses.color_pair(pair)
                         if i < 2:
                             attr |= curses. A_BOLD
@@ -58,7 +67,7 @@ class Particle:
                 except curses.error:
                     pass
 
-    def draw_head(self) -> None:
+    def draw_head(self, color_scheme: int) -> None:
         if not self.show_head:
             return
         
@@ -68,7 +77,7 @@ class Particle:
         if 0 <= hy < self.setup.height and 0 <= hx < self.setup.width:
             try:
                 if curses.has_colors():
-                    self.stdscr.addch(hy, hx, self.head_ch, curses.color_pair(1) | curses.A_BOLD)
+                    self.stdscr.addch(hy, hx, self.head_ch, curses.color_pair(color_scheme + 1) | curses.A_BOLD)
                 else:
                     self.stdscr.addch(hy, hx, self.head_ch)
             except curses.error:
@@ -171,6 +180,8 @@ class Config():
     death_base: int = 85                        # базовое время жизни
     death_delta: int = 25                       # разброс времени жизни
 
+    color_scheme_number: int = 9
+
     def __post_init__(self):
         if self.fps <= 0:
             raise ValueError("fps must be > 0")
@@ -189,9 +200,51 @@ class CursesSetup:
         if curses.has_colors():
             curses.start_color()
             curses.use_default_colors()
+
+            # Классический огненный: yellow -> red -> magenta
             curses.init_pair(1, curses.COLOR_YELLOW, -1)
             curses.init_pair(2, curses.COLOR_RED, -1)
             curses.init_pair(3, curses.COLOR_MAGENTA, -1)
+
+            # Золотой: white -> yellow -> red
+            curses.init_pair(4, curses.COLOR_WHITE, -1)
+            curses.init_pair(5, curses.COLOR_YELLOW, -1)
+            curses.init_pair(6, curses.COLOR_RED, -1)
+
+            # Ледяной: white -> cyan -> blue
+            curses.init_pair(7, curses.COLOR_WHITE, -1)
+            curses.init_pair(8, curses.COLOR_CYAN, -1)
+            curses.init_pair(9, curses.COLOR_BLUE, -1)
+
+            # Фиолетовый: white -> magenta -> blue
+            curses.init_pair(10, curses.COLOR_WHITE, -1)
+            curses.init_pair(11, curses.COLOR_MAGENTA, -1)
+            curses.init_pair(12, curses.COLOR_BLUE, -1)
+
+            # Изумрудный: white -> green -> cyan
+            curses.init_pair(13, curses.COLOR_WHITE, -1)
+            curses.init_pair(14, curses.COLOR_GREEN, -1)
+            curses.init_pair(15, curses.COLOR_CYAN, -1)
+
+            # Кислотный: yellow -> green -> cyan
+            curses.init_pair(16, curses.COLOR_YELLOW, -1)
+            curses.init_pair(17, curses.COLOR_GREEN, -1)
+            curses.init_pair(18, curses.COLOR_CYAN, -1)
+
+            # Закатный: yellow -> magenta -> red
+            curses.init_pair(19, curses.COLOR_YELLOW, -1)
+            curses.init_pair(20, curses.COLOR_MAGENTA, -1)
+            curses.init_pair(21, curses.COLOR_RED, -1)
+
+            # Электрический: white -> cyan -> magenta
+            curses.init_pair(22, curses.COLOR_WHITE, -1)
+            curses.init_pair(23, curses.COLOR_CYAN, -1)
+            curses.init_pair(24, curses.COLOR_MAGENTA, -1)
+
+            # По умолчанию
+            curses.init_pair(25, curses.COLOR_YELLOW, -1)
+            curses.init_pair(26, curses.COLOR_RED, -1)
+            curses.init_pair(27, curses.COLOR_MAGENTA, -1)
 
 
 class ScreenMapper:
@@ -252,6 +305,7 @@ class Firework():
         self.particles: list[Particle] = []
         self.cx = setup.cx + random.randint(-10, 10)
         self.cy = setup.cy + random.randint(-10, 10)
+        self.color_scheme = randomizer.rnd.randint(0, config.color_scheme_number)
         
         for i in range(config.num_particles):
             phi = 2.0 * math.pi * i / config.num_particles
@@ -261,7 +315,7 @@ class Firework():
     def render_firework(self):
         for particle in self.particles:
             if particle.alive:
-                particle.render_particle()
+                particle.render_particle(self.color_scheme)
 
     def update_particles(self):
 
@@ -302,7 +356,7 @@ def run(stdscr: curses.window) -> None:
         stdscr.refresh()
 
         if timer.counter == 100:
-            fireworks.append(Firework(config, setup, randoomizer, stdscr))
+            fireworks.append(Firework(config, setup, randomizer, stdscr))
             timer.counter = 0
 
 
