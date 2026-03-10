@@ -43,7 +43,6 @@ class Particle:
         self.death_after: int = randomizer.random_death_after()
         self.trail: deque[TailPoint] = deque(maxlen=config.tail_len)
         self.color_scheme = randomizer.rnd.choice(color_scheme_bunch) if color_scheme_bunch[0] > 21 else color_scheme_bunch[0]
-
         self.config = config
         self.setup = setup
         self.randomizer = randomizer
@@ -154,8 +153,8 @@ class Config():
     fps: int = 90                               # частота кадров в секунду
     dt: float = field(init=False)               # длительность одного кадра
 
-    scale_x: float = 4.0                        # масштаб по X Сколько пикселей в одном метре по горизонтале
-    scale_y: float = 2.5                        # масштаб по Y
+    scale_x: float = 3.5                        # масштаб по X Сколько пикселей в одном метре по горизонтале
+    scale_y: float = 2.0                        # масштаб по Y
 
     g: float = 9.81                             # ускорение свободного падения
 
@@ -172,7 +171,7 @@ class Config():
         default_factory=lambda: list("0123456789")
     )                                           # символы хвоста
 
-    tail_len: int = 12                          # длина хвоста
+    tail_len: int = 10                         # длина хвоста
 
     tail_change_base: int = 20                  # базовый интервал смены хвоста
     tail_change_delta: int = 5                  # разброс интервала хвоста
@@ -180,10 +179,10 @@ class Config():
     head_change_base: int = 20                  # базовый интервал смены головы
     head_change_delta: int = 5                  # разброс интервала головы
 
-    death_base: int = 80                        # базовое время жизни
+    death_base: int = 180                        # базовое время жизни
     death_delta: int = 5                        # разброс времени жизни
 
-    time_delay_to_a_new_firework: int = 80
+    time_delay_to_a_new_firework: int = 180
 
     firework_color_schemas: list[list[int]] = field(
         default_factory=lambda: [[6, 9, 12],[0],[0, 3],[18],[12, 15, 18], [0, 3, 6, 9, 12, 15, 18], [21], [24], [27]]
