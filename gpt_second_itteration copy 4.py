@@ -287,7 +287,7 @@ def run(stdscr: curses.window) -> None:
     setup = ScreenMapper(stdscr, config)
     randoomizer = Randomizer(config, rnd)
 
-    firework = Firework(config, setup, randoomizer, stdscr)
+    fireworks = [Firework(config, setup, randoomizer, stdscr)]
 
     timer = Timer(config)
     
@@ -300,15 +300,14 @@ def run(stdscr: curses.window) -> None:
             break
 
         stdscr.erase()
-
-        firework.update_particles()
-        firework.render_firework()
-        
-
+        for firework in fireworks:
+            firework.update_particles()
+            firework.render_firework()
+            
         stdscr.refresh()
 
-        if timer.counter == 200:
-            firework = Firework(config, setup, randoomizer, stdscr)
+        if timer.counter == 100:
+            fireworks.append(Firework(config, setup, randoomizer, stdscr))
             timer.counter = 0
 
 
