@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import curses
 import time
 from collections import deque
@@ -40,7 +42,7 @@ class Particle:
         self.head_change_after: int = randomizer.random_change_delay(config.head_change_base, config.head_change_delta)
         self.death_after: int = randomizer.random_death_after()
         self.trail: deque[TailPoint] = deque(maxlen=config.tail_len)
-        self.color_scheme = randomizer.rnd.choice(color_scheme_bunch)
+        self.color_scheme = randomizer.rnd.choice(color_scheme_bunch) if color_scheme_bunch[0] > 21 else color_scheme_bunch[0]
 
         self.config = config
         self.setup = setup
@@ -184,7 +186,8 @@ class Config():
     time_delay_to_a_new_firework: int = 80
 
     firework_color_schemas: list[list[int]] = field(
-        default_factory=lambda: [[6, 9, 12],[0],[0, 3],[18],[12, 15, 18], [0, 3, 6, 9, 12, 15, 18]])
+        default_factory=lambda: [[6, 9, 12],[0],[0, 3],[18],[12, 15, 18], [0, 3, 6, 9, 12, 15, 18], [21], [24], [27]]
+    )
 
     def __post_init__(self):
         if self.fps <= 0:
@@ -205,40 +208,48 @@ class CursesSetup:
             curses.start_color()
             curses.use_default_colors()
 
-            # Классический огненный: yellow -> red -> magenta
-            curses.init_pair(1, curses.COLOR_RED, -1)
+            curses.init_pair(1, curses.COLOR_YELLOW, -1)
             curses.init_pair(2, curses.COLOR_RED, -1)
-            curses.init_pair(3, curses.COLOR_RED, -1)
+            curses.init_pair(3, curses.COLOR_MAGENTA, -1)
 
-            # Золотой: white -> yellow -> red
             curses.init_pair(4, curses.COLOR_YELLOW, -1)
             curses.init_pair(5, curses.COLOR_YELLOW, -1)
             curses.init_pair(6, curses.COLOR_YELLOW, -1)
 
-            # Ледяной: white -> cyan -> blue
             curses.init_pair(7, curses.COLOR_CYAN, -1)
             curses.init_pair(8, curses.COLOR_CYAN, -1)
             curses.init_pair(9, curses.COLOR_CYAN, -1)
 
-            # Фиолетовый: white -> magenta -> blue
             curses.init_pair(10, curses.COLOR_BLUE, -1)
             curses.init_pair(11, curses.COLOR_BLUE, -1)
             curses.init_pair(12, curses.COLOR_BLUE, -1)
 
-            # Изумрудный: white -> green -> cyan
             curses.init_pair(13, curses.COLOR_MAGENTA, -1)
             curses.init_pair(14, curses.COLOR_MAGENTA, -1)
             curses.init_pair(15, curses.COLOR_MAGENTA, -1)
 
-            # Кислотный: yellow -> green -> cyan
             curses.init_pair(16, curses.COLOR_GREEN, -1)
             curses.init_pair(17, curses.COLOR_GREEN, -1)
             curses.init_pair(18, curses.COLOR_GREEN, -1)
 
-            # Закатный: yellow -> magenta -> red
             curses.init_pair(19, curses.COLOR_WHITE, -1)
             curses.init_pair(20, curses.COLOR_WHITE, -1)
             curses.init_pair(21, curses.COLOR_WHITE, -1)
+
+            # Ледяной: white -> cyan -> blue
+            curses.init_pair(22, curses.COLOR_WHITE, -1)
+            curses.init_pair(23, curses.COLOR_CYAN, -1)
+            curses.init_pair(24, curses.COLOR_BLUE, -1)
+
+            # Фиолетовый: white -> magenta -> blue
+            curses.init_pair(25, curses.COLOR_WHITE, -1)
+            curses.init_pair(26, curses.COLOR_MAGENTA, -1)
+            curses.init_pair(27, curses.COLOR_BLUE, -1)
+
+            # Изумрудный: white -> green -> cyan
+            curses.init_pair(28, curses.COLOR_WHITE, -1)
+            curses.init_pair(29, curses.COLOR_GREEN, -1)
+            curses.init_pair(30, curses.COLOR_CYAN, -1)
 
 
 class ScreenMapper:
