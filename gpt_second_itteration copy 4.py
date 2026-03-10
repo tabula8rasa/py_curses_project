@@ -48,10 +48,10 @@ class Particle:
         self.stdscr = stdscr
 
     def render_particle(self) -> None:
-        self.draw_tail()
-        self.draw_head()
+        self._draw_tail()
+        self._draw_head()
 
-    def draw_tail(self) -> None:
+    def _draw_tail(self) -> None:
         for i, point in enumerate(self.trail):
             sx = self.setup.to_screen_x(point.x)
             sy = self.setup.to_screen_y(point.y)
@@ -72,7 +72,7 @@ class Particle:
                 except curses.error:
                     pass
 
-    def draw_head(self) -> None:
+    def _draw_head(self) -> None:
         if not self.show_head:
             return
         
@@ -160,10 +160,10 @@ class Config():
 
     g: float = 9.81                             # ускорение свободного падения
 
-    v_min: float = 5.0                          # минимальная начальная скорость
-    v: float = 16.1                             # базовая начальная скорость
+    v_min: float = 10.0                         # минимальная начальная скорость
+    v: float = 10.0                             # базовая начальная скорость
 
-    num_particles: int = 100                    # число частиц
+    num_particles: int = 50                    # число частиц
 
     head_frames: list[str] = field(
         default_factory=lambda: list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -181,14 +181,22 @@ class Config():
     head_change_base: int = 20                  # базовый интервал смены головы
     head_change_delta: int = 5                  # разброс интервала головы
 
-    death_base: int = 85                        # базовое время жизни
-    death_delta: int = 25                       # разброс времени жизни
-
-    color_scheme_number: int = 9
+    death_base: int = 90                        # базовое время жизни
+    death_delta: int = 0                       # разброс времени жизни
 
     time_delay_to_a_new_firework: int = 100
 
-    firework_color_schemas = [[6, 9, 12],[0],[0, 3],[18],[12, 15, 18]]
+    firework_color_schemas: list[list[int]] = field(
+        default_factory=lambda: [[6, 9, 12],[0],[0, 3],[18],[12, 15, 18]])
+    
+    fame_for_firework_to_appear: dict[str, int] =field(
+        default_factory=lambda: {
+        '-x': -10,
+        'x': 10,
+        '-y': -5,
+        'y': 0
+        }
+    )
 
     def __post_init__(self):
         if self.fps <= 0:
@@ -310,16 +318,23 @@ class Timer():
 
 class Firework():
     def __init__(self, config: Config, setup: ScreenMapper, randomizer: Randomizer, stdscr: curses.window):
-        self.particles: list[Particle] = []
-        self.cx = setup.cx + random.randint(-5, 5)
-        self.cy = setup.cy + random.randint(-5, 5)
+
+        self.cx = setup.cx + random.randint(config.fame_for_firework_to_appear['-x'], config.fame_for_firework_to_appear['x'])
+        self.cy = setup.cy + random.randint(config.fame_for_firework_to_appear['-y'], config.fame_for_firework_to_appear['y'])
         self.color_scheme_bunch = randomizer.rnd.choice(config.firework_color_schemas)
+
+        self.particles: list[Particle] = self.generate_particles(config, setup, randomizer, stdscr)
+        
+    def generate_particles(self, config: Config, setup: ScreenMapper, randomizer: Randomizer, stdscr: curses.window):
+        particles: list[Particle] = []
 
         for i in range(config.num_particles):
             phi = 2.0 * math.pi * i / config.num_particles
             v = random.uniform(config.v_min, config.v)
-            self.particles.append(Particle(phi, v, config, setup, randomizer, stdscr, self.cx, self.cy, self.color_scheme_bunch))
-    
+            particles.append(Particle(phi, v, config, setup, randomizer, stdscr, self.cx, self.cy, self.color_scheme_bunch))
+
+        return particles
+
     def render_firework(self) -> bool:
         firework_is_alive: bool = False
 
@@ -330,7 +345,7 @@ class Firework():
 
         return firework_is_alive
     
-    def update_particles(self):
+    def update_particles(self) -> None:
 
         for particle in self.particles:
             if not particle.alive:
