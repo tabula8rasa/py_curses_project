@@ -117,6 +117,25 @@ class Particle:
         else:
             self.alive = False
 
+    def _update_tail_symbols(self) -> None:
+        for point in self.trail:
+            point.age += 1
+            if point.age >= point.change_after:
+                point.ch = random.choice(self.config.tail_frames)
+                point.age = 0
+                point.change_after = self.randomizer.random_change_delay(self.config.tail_change_base, self.config.tail_change_delta)
+
+    def _update_head_symbol(self) -> None:
+        if not self.show_head:
+            return
+        
+        self.head_age += 1
+        if self.head_age >= self.head_change_after:
+            self.head_ch = random.choice(self.config.head_frames)
+            self.head_age = 0
+            self.head_change_after = self.randomizer.random_change_delay(self.config.head_change_base, self.config.head_change_delta)
+
+
 @dataclass
 class Config():
     fps: int = 90                               # частота кадров в секунду
@@ -217,6 +236,7 @@ class Timer():
     def __init__(self, config: Config):
         self.last = time.perf_counter()
         self.config = config
+        self.counter = 0
 
     def wait_frame(self) -> None:
         now = time.perf_counter()
@@ -273,6 +293,7 @@ def run(stdscr: curses.window) -> None:
     
     while True:
         timer.wait_frame()
+        timer.counter += 1
 
         key = stdscr.getch()
         if key in (ord("q"), 27):
@@ -282,8 +303,14 @@ def run(stdscr: curses.window) -> None:
 
         firework.update_particles()
         firework.render_firework()
+        
 
         stdscr.refresh()
+
+        if timer.counter == 200:
+            firework = Firework(config, setup, randoomizer, stdscr)
+            timer.counter = 0
+
 
 if __name__ == "__main__":
     curses.wrapper(run)
