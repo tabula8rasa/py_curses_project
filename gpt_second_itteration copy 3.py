@@ -15,306 +15,350 @@ class TailPoint:
     change_after: int = 20
 
 
-@dataclass
 class Particle:
-    x: float
-    y: float
-    vx: float
-    vy: float
-    age: int = 0
-    alive: bool = True
-    show_head: bool = True
-    head_ch: str = "A"
-    head_age: int = 0
-    head_change_after: int = 20
-    death_after: int = 0
-    trail: deque[TailPoint] = field(default_factory=lambda: deque(maxlen=100))
+    def __init__(self,
+        phi:float, 
+        v: float, 
+        config: Config, 
+        setup: ScreenMapper, 
+        randomizer: Randomizer, 
+        stdscr: curses.window, 
+        cx: float, 
+        cy: float
+        ):
 
+        self.x = cx
+        self.y = cy
+        self.vx = v * math.cos(phi)
+        self.vy = -v * math.sin(phi)
+        self.age: int = 0
+        self.alive: bool = True
+        self.show_head: bool = True
+        self.head_ch: str = random.choice(config.head_frames)
+        self.head_age: int = 0
+        self.head_change_after: int = randomizer.random_change_delay(config.head_change_base, config.head_change_delta)
+        self.death_after: int = randomizer.random_death_after()
+        self.trail: deque[TailPoint] = deque(maxlen=config.tail_len)
 
-FPS = 90
-DT = 1.0 / FPS
+        self.config = config
+        self.setup = setup
+        self.randomizer = randomizer
+        self.stdscr = stdscr
 
-# Физические параметры
-SCALE_X = 4.0
-SCALE_Y = 3.0
-G = 9.81
+    def render_particle(self, color_scheme: int) -> None:
+        self.draw_tail(color_scheme)
+        self.draw_head(color_scheme)
 
-# Начальные параметры броска
-V_MIN = 0.0
-V = 16.1
+    def draw_tail(self, color_scheme:int) -> None:
+        for i, point in enumerate(self.trail):
+            sx = self.setup.to_screen_x(point.x)
+            sy = self.setup.to_screen_y(point.y)
 
-# Количество частиц в фейерверке
-NUM_PARTICLES = 200
+            if 0 <= sy < self.setup.height and 0 <= sx < self.setup.width:
+                try:
+                    if curses.has_colors():
+                        if self.age < self.death_after:
+                            pair = color_scheme + 2 if i < self.config.tail_len // 2 else color_scheme + 3
+                        else:
+                            pair = color_scheme + 3
+                        attr = curses.color_pair(pair)
+                        if i < 2:
+                            attr |= curses. A_BOLD
+                        self.stdscr.addch(sy, sx, point.ch, attr)
+                    else:
+                        self.stdscr.addch(sy, sx, point.ch)
+                except curses.error:
+                    pass
 
-# Символы головы
-HEAD_FRAMES = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    def draw_head(self, color_scheme: int) -> None:
+        if not self.show_head:
+            return
+        
+        hx = self.setup.to_screen_x(self.x)
+        hy = self.setup.to_screen_y(self.y)
 
-# Символы хвоста
-TAIL_FRAMES = list("0123456789")
-TAIL_LEN = 50
+        if 0 <= hy < self.setup.height and 0 <= hx < self.setup.width:
+            try:
+                if curses.has_colors():
+                    self.stdscr.addch(hy, hx, self.head_ch, curses.color_pair(color_scheme + 1) | curses.A_BOLD)
+                else:
+                    self.stdscr.addch(hy, hx, self.head_ch)
+            except curses.error:
+                pass
+        else:
+            self.show_head = False
 
-# Базовый интервал смены символа хвоста
-TAIL_CHANGE_BASE = 20
-TAIL_CHANGE_DELTA = 5
+    def update_state(self) -> None:
+        if not self.alive:
+            return 
+        
+        self.age += 1
 
-# Базовый интервал смены символа головы
-HEAD_CHANGE_BASE = 20
-HEAD_CHANGE_DELTA = 5
+        if self.age < self.death_after:
+            self._add_tail_point()
+            self._update_motion()
+        else:
+            self._fade_particle()
 
-# Параметры жизни частицы
-DEATH_BASE = 85
-DEATH_DELTA = 25
+        self._update_tail_symbols()
+        self._update_head_symbol()
 
-
-def to_screen_x(x_m: float) -> int:
-    return int(round(x_m * SCALE_X))
-
-
-def to_screen_y(y_m: float) -> int:
-    return int(round(y_m * SCALE_Y))
-
-
-def random_change_delay(base: int, delta: int) -> int:
-    return max(1, base + random.randint(-delta, delta))
-
-
-def random_death_after() -> int:
-    return max(1, DEATH_BASE + random.randint(-DEATH_DELTA, DEATH_DELTA))
-
-
-def init_curses(stdscr: curses.window) -> None:
-    curses.curs_set(0)
-    stdscr.nodelay(True)
-    stdscr.timeout(0)
-
-    if curses.has_colors():
-        curses.start_color()
-        curses.use_default_colors()
-        curses.init_pair(1, curses.COLOR_YELLOW, -1)
-        curses.init_pair(2, curses.COLOR_RED, -1)
-        curses.init_pair(3, curses.COLOR_MAGENTA, -1)
-
-
-def get_world_size(stdscr: curses.window) -> tuple[int, int, float, float]:
-    height, width = stdscr.getmaxyx()
-    world_width_m = width / SCALE_X
-    world_height_m = height / SCALE_Y
-    return height, width, world_width_m, world_height_m
-
-
-def make_particle(cx: float, cy: float, phi: float, v: float) -> Particle:
-    vx = v * math.cos(phi)
-    vy = -v * math.sin(phi)
-
-    return Particle(
-        x=cx,
-        y=cy,
-        vx=vx,
-        vy=vy,
-        head_ch=random.choice(HEAD_FRAMES),
-        head_change_after=random_change_delay(HEAD_CHANGE_BASE, HEAD_CHANGE_DELTA),
-        death_after=random_death_after(),
-        trail=deque(maxlen=TAIL_LEN),
-    )
-
-
-def make_particles(cx: float, cy: float) -> list[Particle]:
-    particles: list[Particle] = []
-
-    for i in range(NUM_PARTICLES):
-        phi = 2.0 * math.pi * i / NUM_PARTICLES
-        v = random.uniform(V_MIN, V)
-        particles.append(make_particle(cx, cy, phi, v))
-
-    return particles
-
-...
-
-def add_tail_point(p: Particle) -> None:
-    p.trail.appendleft(
-        TailPoint(
-            x=p.x,
-            y=p.y,
-            ch=random.choice(TAIL_FRAMES),
+    def _add_tail_point(self) -> None:
+        self.trail.appendleft(
+            TailPoint(
+            x=self.x,
+            y=self.y,
+            ch=random.choice(self.config.tail_frames),
             age=0,
-            change_after=random_change_delay(TAIL_CHANGE_BASE, TAIL_CHANGE_DELTA),
+            change_after=self.randomizer.random_change_delay(self.config.tail_change_base, self.config.tail_change_delta),
         )
     )
 
+    def _update_motion(self) -> None:
+        self.x += self.vx * self.config.dt
+        self.y += self.vy * self.config.dt
+        self.vy += self.config.g * self.config.dt
 
-def update_motion(p: Particle) -> None:
-    p.x += p.vx * DT
-    p.y += p.vy * DT
-    p.vy += G * DT
+    def _fade_particle(self) -> None:
+        self.show_head = False
+        if self.trail:
+            self.trail.pop()
+        else:
+            self.alive = False
 
+    def _update_tail_symbols(self) -> None:
+        for point in self.trail:
+            point.age += 1
+            if point.age >= point.change_after:
+                point.ch = random.choice(self.config.tail_frames)
+                point.age = 0
+                point.change_after = self.randomizer.random_change_delay(self.config.tail_change_base, self.config.tail_change_delta)
 
-def update_tail_symbols(p: Particle) -> None:
-    for point in p.trail:
-        point.age += 1
-        if point.age >= point.change_after:
-            point.ch = random.choice(TAIL_FRAMES)
-            point.age = 0
-            point.change_after = random_change_delay(TAIL_CHANGE_BASE, TAIL_CHANGE_DELTA)
-
-
-def update_head_symbol(p: Particle) -> None:
-    if not p.show_head:
-        return
-
-    p.head_age += 1
-    if p.head_age >= p.head_change_after:
-        p.head_ch = random.choice(HEAD_FRAMES)
-        p.head_age = 0
-        p.head_change_after = random_change_delay(HEAD_CHANGE_BASE, HEAD_CHANGE_DELTA)
-
-
-def fade_particle(p: Particle) -> None:
-    p.show_head = False
-    if p.trail:
-        p.trail.pop()
-    else:
-        p.alive = False
+    def _update_head_symbol(self) -> None:
+        if not self.show_head:
+            return
+        
+        self.head_age += 1
+        if self.head_age >= self.head_change_after:
+            self.head_ch = random.choice(self.config.head_frames)
+            self.head_age = 0
+            self.head_change_after = self.randomizer.random_change_delay(self.config.head_change_base, self.config.head_change_delta)
 
 
-def update_particle_state(p: Particle) -> None:
-    if not p.alive:
-        return
+@dataclass
+class Config():
+    fps: int = 90                               # частота кадров в секунду
+    dt: float = field(init=False)               # длительность одного кадра
 
-    p.age += 1
+    scale_x: float = 4.0                        # масштаб по X
+    scale_y: float = 3.0                        # масштаб по Y
+    
+    coef_to_cx: float = 0.5
+    coef_to_cy: float = 0.4
 
-    if p.age < p.death_after:
-        add_tail_point(p)
-        update_motion(p)
-    else:
-        fade_particle(p)
+    g: float = 9.81                             # ускорение свободного падения
 
-    update_tail_symbols(p)
-    update_head_symbol(p)
+    v_min: float = 5.0                          # минимальная начальная скорость
+    v: float = 16.1                             # базовая начальная скорость
 
+    num_particles: int = 200                    # число частиц
 
-def draw_tail(
-    stdscr: curses.window,
-    p: Particle,
-    height: int,
-    width: int,
-) -> None:
-    for i, point in enumerate(p.trail):
-        sx = to_screen_x(point.x)
-        sy = to_screen_y(point.y)
+    head_frames: list[str] = field(
+        default_factory=lambda: list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    )                                           # символы головы
 
-        if 0 <= sy < height and 0 <= sx < width:
-            try:
-                if curses.has_colors():
-                    pair = 2 if i < TAIL_LEN // 2 else 3
-                    attr = curses.color_pair(pair)
-                    if i < 2:
-                        attr |= curses.A_BOLD
-                    stdscr.addch(sy, sx, point.ch, attr)
-                else:
-                    stdscr.addch(sy, sx, point.ch)
-            except curses.error:
-                pass
+    tail_frames: list[str] = field(
+        default_factory=lambda: list("0123456789")
+    )                                           # символы хвоста
 
+    tail_len: int = 30                          # длина хвоста
 
-def draw_head(
-    stdscr: curses.window,
-    p: Particle,
-    height: int,
-    width: int,
-) -> None:
-    if not p.show_head:
-        return
+    tail_change_base: int = 20                  # базовый интервал смены хвоста
+    tail_change_delta: int = 5                  # разброс интервала хвоста
 
-    hx = to_screen_x(p.x)
-    hy = to_screen_y(p.y)
+    head_change_base: int = 20                  # базовый интервал смены головы
+    head_change_delta: int = 5                  # разброс интервала головы
 
-    if 0 <= hy < height and 0 <= hx < width:
-        try:
-            if curses.has_colors():
-                stdscr.addch(hy, hx, p.head_ch, curses.color_pair(1) | curses.A_BOLD)
-            else:
-                stdscr.addch(hy, hx, p.head_ch)
-        except curses.error:
-            pass
-    else:
-        p.show_head = False
+    death_base: int = 85                        # базовое время жизни
+    death_delta: int = 25                       # разброс времени жизни
+
+    color_scheme_number: int = 9
+
+    def __post_init__(self):
+        if self.fps <= 0:
+            raise ValueError("fps must be > 0")
+        if self.scale_x <= 0 or self.scale_y <= 0:
+            raise ValueError("scale_x and scale_y must be > 0")
+        self.dt = 1.0 / self.fps
 
 
-def render_particle(
-    stdscr: curses.window,
-    p: Particle,
-    height: int,
-    width: int,
-) -> None:
-    draw_tail(stdscr, p, height, width)
-    draw_head(stdscr, p, height, width)
+class CursesSetup:
+    @staticmethod
+    def setup_screen(stdscr: curses.window) -> None:
+        curses.curs_set(0)
+        stdscr.nodelay(True)
+        stdscr.timeout(0)
+
+        if curses.has_colors():
+            curses.start_color()
+            curses.use_default_colors()
+
+            # Классический огненный: yellow -> red -> magenta
+            curses.init_pair(1, curses.COLOR_YELLOW, -1)
+            curses.init_pair(2, curses.COLOR_RED, -1)
+            curses.init_pair(3, curses.COLOR_MAGENTA, -1)
+
+            # Золотой: white -> yellow -> red
+            curses.init_pair(4, curses.COLOR_WHITE, -1)
+            curses.init_pair(5, curses.COLOR_YELLOW, -1)
+            curses.init_pair(6, curses.COLOR_RED, -1)
+
+            # Ледяной: white -> cyan -> blue
+            curses.init_pair(7, curses.COLOR_WHITE, -1)
+            curses.init_pair(8, curses.COLOR_CYAN, -1)
+            curses.init_pair(9, curses.COLOR_BLUE, -1)
+
+            # Фиолетовый: white -> magenta -> blue
+            curses.init_pair(10, curses.COLOR_WHITE, -1)
+            curses.init_pair(11, curses.COLOR_MAGENTA, -1)
+            curses.init_pair(12, curses.COLOR_BLUE, -1)
+
+            # Изумрудный: white -> green -> cyan
+            curses.init_pair(13, curses.COLOR_WHITE, -1)
+            curses.init_pair(14, curses.COLOR_GREEN, -1)
+            curses.init_pair(15, curses.COLOR_CYAN, -1)
+
+            # Кислотный: yellow -> green -> cyan
+            curses.init_pair(16, curses.COLOR_YELLOW, -1)
+            curses.init_pair(17, curses.COLOR_GREEN, -1)
+            curses.init_pair(18, curses.COLOR_CYAN, -1)
+
+            # Закатный: yellow -> magenta -> red
+            curses.init_pair(19, curses.COLOR_YELLOW, -1)
+            curses.init_pair(20, curses.COLOR_MAGENTA, -1)
+            curses.init_pair(21, curses.COLOR_RED, -1)
+
+            # Электрический: white -> cyan -> magenta
+            curses.init_pair(22, curses.COLOR_WHITE, -1)
+            curses.init_pair(23, curses.COLOR_CYAN, -1)
+            curses.init_pair(24, curses.COLOR_MAGENTA, -1)
+
+            # По умолчанию
+            curses.init_pair(25, curses.COLOR_YELLOW, -1)
+            curses.init_pair(26, curses.COLOR_RED, -1)
+            curses.init_pair(27, curses.COLOR_MAGENTA, -1)
 
 
-def update_particles(particles: list[Particle]) -> int:
-    alive_count = 0
+class ScreenMapper:
+    def __init__(self, stdscr: curses.window, config: Config):
+        self.stdscr = stdscr
+        self.config = config
 
-    for p in particles:
-        if not p.alive:
-            continue
+        self.height, self.width = self.stdscr.getmaxyx()
+        self.world_width_m = self.width / self.config.scale_x
+        self.world_height_m = self.height / self.config.scale_y
 
-        update_particle_state(p)
+        self.cx = self.world_width_m * self.config.coef_to_cx
+        self.cy = self.world_height_m * self.config.coef_to_cy
+        
 
-        if p.alive:
-            alive_count += 1
+    def to_screen_x(self, x: float) -> int:
+        return int(round(x * self.config.scale_x))
 
-    return alive_count
+    def to_screen_y(self, y: float) -> int:
+        return int(round(y * self.config.scale_y))
+    
 
+class Randomizer:
+    def __init__(self, config: Config, rnd: random.Random):
+        self.config = config
+        self.rnd = rnd
 
-def render_particles(
-    stdscr: curses.window,
-    particles: list[Particle],
-    height: int,
-    width: int,
-) -> None:
-    for p in particles:
-        if p.alive:
-            render_particle(stdscr, p, height, width)
+    def random_change_delay(self, base: int, delta: int) -> int:
+        return max(1, base + self.rnd.randint(-delta, delta))
+    
+    def random_death_after(self) -> int:
+        return max(
+            1, 
+            self.config.death_base 
+            + self.rnd.randint(-self.config.death_delta, self.config.death_delta)
+        )
+    
+    
+class Timer():
+    def __init__(self, config: Config):
+        self.last = time.perf_counter()
+        self.config = config
+        self.counter = 0
 
-
-def wait_frame(last: float) -> float:
-    now = time.perf_counter()
-    elapsed = now - last
-
-    if elapsed < DT:
-        time.sleep(DT - elapsed)
+    def wait_frame(self) -> None:
         now = time.perf_counter()
+        elapsed = now - self.last
 
-    return now
+        if elapsed < self.config.dt:
+            time.sleep(self.config.dt - elapsed)
+            now = time.perf_counter()
 
+        self.last = now
+
+
+class Firework():
+    def __init__(self, config: Config, setup: ScreenMapper, randomizer: Randomizer, stdscr: curses.window):
+        self.particles: list[Particle] = []
+        self.cx = setup.cx + random.randint(-10, 10)
+        self.cy = setup.cy + random.randint(-10, 10)
+        self.color_scheme = randomizer.rnd.randint(0, config.color_scheme_number)
+        
+        for i in range(config.num_particles):
+            phi = 2.0 * math.pi * i / config.num_particles
+            v = random.uniform(config.v_min, config.v)
+            self.particles.append(Particle(phi, v, config, setup, randomizer, stdscr, self.cx, self.cy))
+    
+    def render_firework(self):
+        for particle in self.particles:
+            if particle.alive:
+                particle.render_particle(self.color_scheme)
+
+    def update_particles(self):
+
+        for particle in self.particles:
+            if not particle.alive:
+                continue
+
+            particle.update_state()
+        
 
 def run(stdscr: curses.window) -> None:
-    init_curses(stdscr)
 
-    height, width, world_width_m, world_height_m = get_world_size(stdscr)
+    CursesSetup.setup_screen(stdscr)
 
-    cx = world_width_m * 0.5
-    cy = world_height_m * 0.4
+    config = Config()
+    rnd = random.Random(42)
+    setup = ScreenMapper(stdscr, config)
+    randomizer = Randomizer(config, rnd)
 
-    particles = make_particles(cx, cy)
+    fireworks = [Firework(config, setup, randomizer, stdscr)]
 
-    last = time.perf_counter()
-
+    timer = Timer(config)
+    
     while True:
-        last = wait_frame(last)
+        timer.wait_frame()
+        timer.counter += 1
 
         key = stdscr.getch()
         if key in (ord("q"), 27):
             break
 
         stdscr.erase()
-
-        alive_count = update_particles(particles)
-        render_particles(stdscr, particles, height, width)
-
+        for firework in fireworks:
+            firework.update_particles()
+            firework.render_firework()
+            
         stdscr.refresh()
 
-        if alive_count == 0:
-            particles = make_particles(cx+random.randint(-10, 10), cy+random.randint(-10, 10))
+        if timer.counter == 50:
+            fireworks.append(Firework(config, setup, randomizer, stdscr))
+            timer.counter = 0
 
 
 if __name__ == "__main__":

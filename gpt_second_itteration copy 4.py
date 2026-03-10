@@ -57,7 +57,10 @@ class Particle:
             if 0 <= sy < self.setup.height and 0 <= sx < self.setup.width:
                 try:
                     if curses.has_colors():
-                        pair = color_scheme + 2 if i < self.config.tail_len // 2 else color_scheme + 3
+                        if self.age < self.death_after:
+                            pair = color_scheme + 2 if i < self.config.tail_len // 2 else color_scheme + 3
+                        else:
+                            pair = color_scheme + 3
                         attr = curses.color_pair(pair)
                         if i < 2:
                             attr |= curses. A_BOLD
@@ -90,7 +93,6 @@ class Particle:
             return 
         
         self.age += 1
-
 
         if self.age < self.death_after:
             self._add_tail_point()
@@ -169,7 +171,7 @@ class Config():
         default_factory=lambda: list("0123456789")
     )                                           # символы хвоста
 
-    tail_len: int = 50                          # длина хвоста
+    tail_len: int = 30                          # длина хвоста
 
     tail_change_base: int = 20                  # базовый интервал смены хвоста
     tail_change_delta: int = 5                  # разброс интервала хвоста
@@ -354,7 +356,7 @@ def run(stdscr: curses.window) -> None:
             
         stdscr.refresh()
 
-        if timer.counter == 100:
+        if timer.counter == 50:
             fireworks.append(Firework(config, setup, randomizer, stdscr))
             timer.counter = 0
 
