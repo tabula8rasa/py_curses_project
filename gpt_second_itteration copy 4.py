@@ -17,10 +17,10 @@ class TailPoint:
 
 @dataclass
 class Particle:
-    def __init__(self, phi:float, v: float, config: Config, setup: ScreenMapper, randomizer: Randomizer, stdscr: curses.window):
+    def __init__(self, phi:float, v: float, config: Config, setup: ScreenMapper, randomizer: Randomizer, stdscr: curses.window, cx: float , cy: float):
 
-        self.x = setup.cx
-        self.y = setup.cy
+        self.x = cx
+        self.y = cy
         self.vx = v * math.cos(phi)
         self.vy = -v * math.sin(phi)
         self.age: int = 0
@@ -93,7 +93,6 @@ class Particle:
         self._update_tail_symbols()
         self._update_head_symbol()
 
-
     def _add_tail_point(self) -> None:
         self.trail.appendleft(
             TailPoint(
@@ -149,7 +148,7 @@ class Config():
 
     g: float = 9.81                             # ускорение свободного падения
 
-    v_min: float = 0.0                          # минимальная начальная скорость
+    v_min: float = 5.0                          # минимальная начальная скорость
     v: float = 16.1                             # базовая начальная скорость
 
     num_particles: int = 200                    # число частиц
@@ -252,11 +251,13 @@ class Timer():
 class Firework():
     def __init__(self, config: Config, setup: ScreenMapper, randomizer: Randomizer, stdscr: curses.window):
         self.particles: list[Particle] = []
-
+        self.cx = setup.cx + random.randint(-10, 10)
+        self.cy = setup.cy + random.randint(-10, 10)
+        
         for i in range(config.num_particles):
             phi = 2.0 * math.pi * i / config.num_particles
             v = random.uniform(config.v_min, config.v)
-            self.particles.append(Particle(phi, v, config, setup, randomizer, stdscr))
+            self.particles.append(Particle(phi, v, config, setup, randomizer, stdscr, self.cx, self.cy))
     
     def render_firework(self):
         for particle in self.particles:
@@ -275,7 +276,6 @@ class Firework():
             if particle.alive:
                 alive_count += 1
         
-        # return alive_count
 
 
 def run(stdscr: curses.window) -> None:
