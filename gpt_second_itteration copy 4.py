@@ -59,6 +59,23 @@ class Particle:
                 except curses.error:
                     pass
 
+    def draw_head(self):
+        if not self.show_head:
+            return
+        
+        hx = self.setup.to_screen_x(self.x)
+        hy = self.setup.to_screen_y(self.y)
+
+        if 0 <= hy < self.setup.height and 0 <= hx < self.setup.width:
+            try:
+                if curses.has_colors():
+                    self.stdscr.addch(hy, hx, self.head_ch, curses.color_pair(1) | curses.A_BOLD)
+                else:
+                    self.stdscr.addch(hy, hx, self.head_ch)
+            except curses.error:
+                pass
+        else:
+            self.show_head = False
 
 @dataclass
 class Config():
