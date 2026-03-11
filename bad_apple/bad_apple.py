@@ -9,30 +9,27 @@ import curses
 import time
 import argparse
 import numpy as np
-from typing import Any, ClassVar, Final
+from typing import Any, ClassVar
 
 
 
 class Config():
 
-    def __init__(self, video_path: str, color_schema_name: str, is_bold: bool):
-
-        base_dir: Path = Path(__file__).resolve().parent
-        default_video: Path = base_dir / "bad_apple.mp4"
-
-        ascii_chars: Final[str] = "#@%* "
-        color_schema: int = 3
-
-        color_map: Final[ClassVar[dict[str, int]]] = field(default_factory=lambda:{
+    color_map: ClassVar[dict[str, int]] = {
         "r": 1,
         "g": 2,
         "m": 3,
         "b": 4,
         "w": 5
-        })
+    }
+    ascii_chars: ClassVar[str] = "#@%* "
 
-    def choose_color_schema(self, color_schema_name: str):
+    def __init__(self, video_path: str, color_schema_name: str, is_bold: bool):
+
+        self.video_path = Path(__file__).resolve().parent  / "bad_apple.mp4"
         self.color_schema = self.color_map[color_schema_name]
+        self.is_bold = is_bold
+
 
 
 class CursesSetup:
@@ -151,7 +148,6 @@ def main(stdscr: curses.window, video_path: str, color_schema_name: str, is_bold
     CursesSetup.setup_screen(stdscr)
 
     config: Config = Config(video_path, color_schema_name, is_bold)
-    config.choose_color_schema(color_schema_name)
 
     setup: ScreenMapper = ScreenMapper(stdscr, config)
     convertor: ConvertorVideo2ASCII = ConvertorVideo2ASCII(config)
