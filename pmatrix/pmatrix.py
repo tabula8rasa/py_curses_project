@@ -2,7 +2,9 @@
 
 #Реалзицая программы cmatrix на Python
 
-import curses, random, time
+import curses
+import random
+import time
 from collections import deque
 from dataclasses import dataclass
 from typing import Final, Protocol, cast
