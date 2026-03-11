@@ -9,18 +9,31 @@ import curses
 import time
 import argparse
 import numpy as np
-from dataclasses import dataclass
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Final
 
 
-@dataclass
+
 class Config():
 
-    base_dir: ClassVar[Path] = Path(__file__).resolve().parent
-    default_video: ClassVar[Path] = base_dir / "bad_apple.mp4"
+    def __init__(self, video_path: str, color_schema_name: str, is_bold: bool):
 
-    ascii_chars: str = "#@%* "
-    color_schema: int = 3
+        base_dir: Path = Path(__file__).resolve().parent
+        default_video: Path = base_dir / "bad_apple.mp4"
+
+        ascii_chars: Final[str] = "#@%* "
+        color_schema: int = 3
+
+        color_map: Final[ClassVar[dict[str, int]]] = field(default_factory=lambda:{
+        "r": 1,
+        "g": 2,
+        "m": 3,
+        "b": 4,
+        "w": 5
+        })
+
+    def choose_color_schema(self, color_schema_name: str):
+        self.color_schema = self.color_map[color_schema_name]
+
 
 class CursesSetup:
     @staticmethod
@@ -88,11 +101,12 @@ class ConvertorVideo2ASCII:
 class Video:
     def __init__(self, video_path: str):
         self.capture = cv2.VideoCapture(video_path)
-        self._validation()
         self.video_path = video_path
         self.ret: bool
         self.frame: np.ndarray[Any, np.dtype[np.generic]]
     
+        self._validation()
+
     def _validation(self):
         if not self.capture.isOpened():
             raise IOError(f"Не удалось открыть видео: {self.video_path}")
@@ -132,11 +146,13 @@ class RenderVideo:
                     pass
         self.stdscr.refresh()
 
-def main(stdscr: curses.window, video_path: str) -> None:
+def main(stdscr: curses.window, video_path: str, color_schema_name: str, is_bold: bool) -> None:
     
     CursesSetup.setup_screen(stdscr)
 
-    config: Config = Config()
+    config: Config = Config(video_path, color_schema_name, is_bold)
+    config.choose_color_schema(color_schema_name)
+
     setup: ScreenMapper = ScreenMapper(stdscr, config)
     convertor: ConvertorVideo2ASCII = ConvertorVideo2ASCII(config)
 
@@ -173,11 +189,27 @@ if __name__ == "__main__":
         description="Воспроизведение Bad Apple в терминале через ASCII-графику"
     )
     parser.add_argument(
-        "video",
-        nargs="?",
-        default=Config.default_video,
-        help="Путь к видеофайлу (по умолчанию bad_apple.mp4)",
+        "-p",
+        "--path",
+        default="__default__",
+        help="Путь к видеофайлу (по умолчанию <папка_с_этим_файлом>/bad_apple.mp4)",
+    )
+    parser.add_argument(
+        "-c",
+        "--color",
+        choices=["r", "g", "b", "m", "w"],
+        default="g",
+        help=(
+            "Цвет символов ASCII. "
+            "Этим цветом будут отображаться символы."
+        ),
+    )
+    parser.add_argument(
+        "-b",
+        "--bold",
+        action="store_true",
+        help="Включить жирное отображение символов ASCII.",
     )
     args: argparse.Namespace = parser.parse_args()
 
-    curses.wrapper(main, args.video)
+    curses.wrapper(main, args.video, args.color, args.bold)
