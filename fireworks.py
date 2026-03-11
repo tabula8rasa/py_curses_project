@@ -28,7 +28,8 @@ class Particle:
         cx: float, 
         cy: float,
         color_scheme_bunch: list[int],
-        tail_len: int
+        tail_len: int,
+        is_bold: bool
         ):
 
         self.x = cx
@@ -45,6 +46,7 @@ class Particle:
         self.trail: deque[TailPoint] = deque(maxlen=tail_len)
         self.color_scheme = randomizer.rnd.choice(color_scheme_bunch) if len(color_scheme_bunch) == 1 else color_scheme_bunch[0]
         self.tail_len = tail_len
+        self.is_bold = is_bold
         self.config = config
         self.setup = setup
         self.randomizer = randomizer
@@ -67,8 +69,8 @@ class Particle:
                         else:
                             pair = self.color_scheme + 3
                         attr = curses.color_pair(pair)
-                        if i < 2:
-                            attr |= curses. A_BOLD
+                        if self.is_bold:
+                            attr |= curses.A_BOLD
                         self.stdscr.addch(sy, sx, point.ch, attr)
                     else:
                         self.stdscr.addch(sy, sx, point.ch)
@@ -85,7 +87,10 @@ class Particle:
         if 0 <= hy < self.setup.height and 0 <= hx < self.setup.width:
             try:
                 if curses.has_colors():
-                    self.stdscr.addch(hy, hx, self.head_ch, curses.color_pair(self.color_scheme + 1))
+                    attr = curses.color_pair(self.color_scheme + 1)
+                    if self.is_bold:
+                        attr |= curses.A_BOLD
+                    self.stdscr.addch(hy, hx, self.head_ch, attr)
                 else:
                     self.stdscr.addch(hy, hx, self.head_ch)
             except curses.error:
@@ -186,7 +191,9 @@ class Config():
     death_base: int = 120                        # базовое время жизни
     death_delta: int = 5                        # разброс времени жизни
 
-    time_delay_to_a_new_firework: int = 250
+    is_or_not_bold = [True]
+
+    time_delay_to_a_new_firework: int = 100
 
     firework_color_schemas: list[list[int]] = field(
         default_factory=lambda: [[6,9,12], [0], [0,3], [18], [12,15,18], [0,3,6,9,12,15,18], [21], [24], [27]]
@@ -316,6 +323,7 @@ class Firework:
 
         self.tail_len = randomizer.rnd.randint(config.tail_len_min, config.tail_len_max)
         self.num_particles = randomizer.rnd.randint(config.num_particles_min, config.num_particles_max)
+        self.is_bold: bool = randomizer.rnd.choice(config.is_or_not_bold)
 
         self.particles: list[Particle] = self.generate_particles(config, setup, randomizer, stdscr)
         
@@ -325,7 +333,7 @@ class Firework:
         for i in range(self.num_particles):
             phi = 2.0 * math.pi * i / self.num_particles
             v = random.uniform(config.v_min, config.v_max)
-            particles.append(Particle(phi, v, config, setup, randomizer, stdscr, self.cx, self.cy, self.color_scheme_bunch, self.tail_len))
+            particles.append(Particle(phi, v, config, setup, randomizer, stdscr, self.cx, self.cy, self.color_scheme_bunch, self.tail_len, self.is_bold))
 
         return particles
 
@@ -352,14 +360,14 @@ def run(stdscr: curses.window) -> None:
 
     CursesSetup.setup_screen(stdscr)
 
-    config = Config()
-    setup = ScreenMapper(stdscr, config)
-    randomizer = Randomizer(config, random.Random())
+    config: Config = Config()
+    setup: ScreenMapper = ScreenMapper(stdscr, config)
+    randomizer: Randomizer = Randomizer(config, random.Random())
 
-    fireworks = [Firework(config, setup, randomizer, stdscr)]
+    fireworks: list[Firework]  = [Firework(config, setup, randomizer, stdscr)]
 
-    timer = Timer(config)
-    delay = config.time_delay_to_a_new_firework
+    timer: Timer = Timer(config)
+    delay: float = config.time_delay_to_a_new_firework
 
     while True:
         timer.wait_frame()
@@ -370,11 +378,16 @@ def run(stdscr: curses.window) -> None:
             break
 
         stdscr.erase()
+
+        alive_fireworks: list[Firework] = []
+
         for firework in fireworks:
             firework.update_particles()
             status = firework.render_firework()
-            if not status:
-                fireworks.pop(fireworks.index(firework))
+            if status:
+                alive_fireworks.append(firework)
+
+        fireworks =  alive_fireworks
             
         stdscr.refresh()
 
