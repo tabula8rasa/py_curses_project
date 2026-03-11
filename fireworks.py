@@ -165,11 +165,11 @@ class Config():
 
     g: float = 9.81                             # ускорение свободного падения
 
-    v_min: float = 0.0                          # минимальная начальная скорость
+    v_min: float = 16.0                          # минимальная начальная скорость
     v_max: float = 16.0                             # базовая начальная скорость
 
-    num_particles_min: int = 100                    # число частиц
-    num_particles_max: int = 200
+    num_particles_min: int = 4                    # число частиц
+    num_particles_max: int = 4
 
     head_frames: list[str] = field(
         default_factory=lambda: list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -179,7 +179,7 @@ class Config():
         default_factory=lambda: list("0123456789")
     )                                           # символы хвоста
 
-    tail_len_min: int = 0                          # длина хвоста
+    tail_len_min: int = 15                          # длина хвоста
     tail_len_max: int = 20
 
     tail_change_base: int = 20                  # базовый интервал смены хвоста
@@ -188,12 +188,12 @@ class Config():
     head_change_base: int = 20                  # базовый интервал смены головы
     head_change_delta: int = 5                  # разброс интервала головы
 
-    death_base: int = 120                        # базовое время жизни
+    death_base: int = 120                       # базовое время жизни
     death_delta: int = 5                        # разброс времени жизни
 
-    is_or_not_bold = [True]
+    is_or_not_bold = [True]              #[False]: только обычные, [True]: только жирыне, [False, True]: оба варианта
 
-    time_delay_to_a_new_firework: int = 100
+    time_delay_to_a_new_firework: int = 130
 
     firework_color_schemas: list[list[int]] = field(
         default_factory=lambda: [[6,9,12], [0], [0,3], [18], [12,15,18], [0,3,6,9,12,15,18], [21], [24], [27]]
