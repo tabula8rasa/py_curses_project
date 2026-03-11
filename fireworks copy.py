@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import curses
 import time
 from collections import deque
@@ -40,8 +42,7 @@ class Particle:
         self.head_change_after: int = randomizer.random_change_delay(config.head_change_base, config.head_change_delta)
         self.death_after: int = randomizer.random_death_after()
         self.trail: deque[TailPoint] = deque(maxlen=config.tail_len)
-        self.color_scheme = randomizer.rnd.choice(color_scheme_bunch)
-
+        self.color_scheme = randomizer.rnd.choice(color_scheme_bunch) if len(color_scheme_bunch) == 1 else color_scheme_bunch[0]
         self.config = config
         self.setup = setup
         self.randomizer = randomizer
@@ -82,7 +83,7 @@ class Particle:
         if 0 <= hy < self.setup.height and 0 <= hx < self.setup.width:
             try:
                 if curses.has_colors():
-                    self.stdscr.addch(hy, hx, self.head_ch, curses.color_pair(self.color_scheme + 1) | curses.A_BOLD)
+                    self.stdscr.addch(hy, hx, self.head_ch, curses.color_pair(self.color_scheme + 1))
                 else:
                     self.stdscr.addch(hy, hx, self.head_ch)
             except curses.error:
@@ -152,15 +153,12 @@ class Config():
     fps: int = 90                               # частота кадров в секунду
     dt: float = field(init=False)               # длительность одного кадра
 
-    scale_x: float = 4.0                        # масштаб по X
-    scale_y: float = 2.5                        # масштаб по Y
-    
-    coef_to_cx: float = 0.5
-    coef_to_cy: float = 0.4
+    scale_x: float = 3.5                        # масштаб по X Сколько пикселей в одном метре по горизонтале
+    scale_y: float = 2.0                        # масштаб по Y
 
     g: float = 9.81                             # ускорение свободного падения
 
-    v_min: float = 0.0                         # минимальная начальная скорость
+    v_min: float = 0.0                          # минимальная начальная скорость
     v: float = 16.0                             # базовая начальная скорость
 
     num_particles: int = 150                    # число частиц
@@ -173,7 +171,7 @@ class Config():
         default_factory=lambda: list("0123456789")
     )                                           # символы хвоста
 
-    tail_len: int = 12                          # длина хвоста
+    tail_len: int = 10                          # длина хвоста
 
     tail_change_base: int = 20                  # базовый интервал смены хвоста
     tail_change_delta: int = 5                  # разброс интервала хвоста
@@ -181,21 +179,13 @@ class Config():
     head_change_base: int = 20                  # базовый интервал смены головы
     head_change_delta: int = 5                  # разброс интервала головы
 
-    death_base: int = 80                        # базовое время жизни
-    death_delta: int = 5                       # разброс времени жизни
+    death_base: int = 120                        # базовое время жизни
+    death_delta: int = 5                        # разброс времени жизни
 
-    time_delay_to_a_new_firework: int = 80
+    time_delay_to_a_new_firework: int = 150
 
     firework_color_schemas: list[list[int]] = field(
-        default_factory=lambda: [[6, 9, 12],[0],[0, 3],[18],[12, 15, 18], [0, 3, 6, 9, 12, 15, 18]])
-    
-    fame_for_firework_to_appear: dict[str, int] =field(
-        default_factory=lambda: {
-        '-x': -15,
-        'x': 15,
-        '-y': -5,
-        'y': 0
-        }
+        default_factory=lambda: [[6,9,12], [0], [0,3], [18], [12,15,18], [0,3,6,9,12,15,18], [21], [24], [27]]
     )
 
     def __post_init__(self):
@@ -203,6 +193,8 @@ class Config():
             raise ValueError("fps must be > 0")
         if self.scale_x <= 0 or self.scale_y <= 0:
             raise ValueError("scale_x and scale_y must be > 0")
+        if self.v_min > self.v:
+            raise ValueError("v_min should not greater that v")
         self.dt = 1.0 / self.fps
 
 
@@ -217,40 +209,48 @@ class CursesSetup:
             curses.start_color()
             curses.use_default_colors()
 
-            # Классический огненный: yellow -> red -> magenta
-            curses.init_pair(1, curses.COLOR_RED, -1)
+            curses.init_pair(1, curses.COLOR_YELLOW, -1)
             curses.init_pair(2, curses.COLOR_RED, -1)
-            curses.init_pair(3, curses.COLOR_RED, -1)
+            curses.init_pair(3, curses.COLOR_MAGENTA, -1)
 
-            # Золотой: white -> yellow -> red
             curses.init_pair(4, curses.COLOR_YELLOW, -1)
             curses.init_pair(5, curses.COLOR_YELLOW, -1)
             curses.init_pair(6, curses.COLOR_YELLOW, -1)
 
-            # Ледяной: white -> cyan -> blue
             curses.init_pair(7, curses.COLOR_CYAN, -1)
             curses.init_pair(8, curses.COLOR_CYAN, -1)
             curses.init_pair(9, curses.COLOR_CYAN, -1)
 
-            # Фиолетовый: white -> magenta -> blue
             curses.init_pair(10, curses.COLOR_BLUE, -1)
             curses.init_pair(11, curses.COLOR_BLUE, -1)
             curses.init_pair(12, curses.COLOR_BLUE, -1)
 
-            # Изумрудный: white -> green -> cyan
             curses.init_pair(13, curses.COLOR_MAGENTA, -1)
             curses.init_pair(14, curses.COLOR_MAGENTA, -1)
             curses.init_pair(15, curses.COLOR_MAGENTA, -1)
 
-            # Кислотный: yellow -> green -> cyan
             curses.init_pair(16, curses.COLOR_GREEN, -1)
             curses.init_pair(17, curses.COLOR_GREEN, -1)
             curses.init_pair(18, curses.COLOR_GREEN, -1)
 
-            # Закатный: yellow -> magenta -> red
             curses.init_pair(19, curses.COLOR_WHITE, -1)
             curses.init_pair(20, curses.COLOR_WHITE, -1)
             curses.init_pair(21, curses.COLOR_WHITE, -1)
+
+            # Ледяной: white -> cyan -> blue
+            curses.init_pair(22, curses.COLOR_WHITE, -1)
+            curses.init_pair(23, curses.COLOR_CYAN, -1)
+            curses.init_pair(24, curses.COLOR_BLUE, -1)
+
+            # Фиолетовый: white -> magenta -> blue
+            curses.init_pair(25, curses.COLOR_WHITE, -1)
+            curses.init_pair(26, curses.COLOR_MAGENTA, -1)
+            curses.init_pair(27, curses.COLOR_BLUE, -1)
+
+            # Изумрудный: white -> green -> cyan
+            curses.init_pair(28, curses.COLOR_WHITE, -1)
+            curses.init_pair(29, curses.COLOR_GREEN, -1)
+            curses.init_pair(30, curses.COLOR_CYAN, -1)
 
 
 class ScreenMapper:
@@ -261,10 +261,6 @@ class ScreenMapper:
         self.height, self.width = self.stdscr.getmaxyx()
         self.world_width_m = self.width / self.config.scale_x
         self.world_height_m = self.height / self.config.scale_y
-
-        self.cx = self.world_width_m * self.config.coef_to_cx
-        self.cy = self.world_height_m * self.config.coef_to_cy
-        
 
     def to_screen_x(self, x: float) -> int:
         return int(round(x * self.config.scale_x))
@@ -289,7 +285,7 @@ class Randomizer:
         )
     
     
-class Timer():
+class Timer:
     def __init__(self, config: Config):
         self.last = time.perf_counter()
         self.config = config
@@ -306,11 +302,12 @@ class Timer():
         self.last = now
 
 
-class Firework():
+class Firework:
     def __init__(self, config: Config, setup: ScreenMapper, randomizer: Randomizer, stdscr: curses.window):
 
-        self.cx = setup.cx + random.randint(config.fame_for_firework_to_appear['-x'], config.fame_for_firework_to_appear['x'])
-        self.cy = setup.cy + random.randint(config.fame_for_firework_to_appear['-y'], config.fame_for_firework_to_appear['y'])
+        self.cx = random.randint(int(setup.world_width_m * 0.2), int(setup.world_width_m * 0.8))
+        self.cy = random.randint(int(setup.world_height_m * 0.4), int(setup.world_height_m * 0.6))
+
         self.color_scheme_bunch = randomizer.rnd.choice(config.firework_color_schemas)
 
         self.particles: list[Particle] = self.generate_particles(config, setup, randomizer, stdscr)
@@ -378,7 +375,7 @@ def run(stdscr: curses.window) -> None:
         if timer.counter == delay:
             fireworks.append(Firework(config, setup, randomizer, stdscr))
             timer.counter = 0
-            delay = int(config.time_delay_to_a_new_firework - (random.random()*40))
+            delay = int(config.time_delay_to_a_new_firework - (random.random()*(config.time_delay_to_a_new_firework//2)))
 
 
 

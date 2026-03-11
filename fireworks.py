@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
 import curses
 import time
 from collections import deque
@@ -47,6 +48,12 @@ class Particle:
         self.color_scheme = randomizer.rnd.choice(color_scheme_bunch) if len(color_scheme_bunch) == 1 else color_scheme_bunch[0]
         self.tail_len = tail_len
         self.is_bold = is_bold
+        self.confetti_mode: bool = False
+        self.confetti_age: int = 0
+        self.confetti_lifetime: int = randomizer.rnd.randint(config.confetti_lifetime_min, config.confetti_lifetime_min)
+        self.confetti_vy: float = config.confetti_init_vy
+        self.confetti_ch: str = randomizer.rnd.choice(config.confetti_frames)
+
         self.config = config
         self.setup = setup
         self.randomizer = randomizer
@@ -78,6 +85,23 @@ class Particle:
                     pass
 
     def _draw_head(self) -> None:
+
+        if self.confetti_mode:
+            hx = self.setup.to_screen_x(self.x)
+            hy = self.setup.to_screen_y(self.y)
+
+            if 0 <= hy < self.setup.height and 0 <= hx < self.setup.width:
+                try:
+                    attr = curses.color_pair(self.color_scheme + 3)
+                    # if self.is_bold:
+                    #     attr |= curses.A_BOLD
+                    self.stdscr.addch(hy, hx, self.confetti_ch, attr)
+                except curses.error:
+                    pass
+            else:
+                self.alive = False
+            return
+        
         if not self.show_head:
             return
         
@@ -100,25 +124,69 @@ class Particle:
 
     def update_state(self) -> None:
         if not self.alive:
-            return 
-        
+            return
+
         self.age += 1
 
-        if self.age < self.death_after:
-            self._add_tail_point()
-            self._update_motion()
+        if not self.confetti_mode:
+            if self.age < self.death_after:
+                self._add_tail_point()
+                self._update_motion()
+                self._update_tail_symbols()
+                self._update_head_symbol()
+            else:
+                self.confetti_mode = True
+                self.confetti_age = 0
         else:
-            self._fade_particle()
+            self._add_tail_point()
+            self._update_confetti_motion()
+            self._update_confetti_symbols()
+            self.confetti_age += 1
 
-        self._update_tail_symbols()
-        self._update_head_symbol()
+            if self.confetti_age >= self.confetti_lifetime:
+                self.alive = False
+
+
+    def _update_confetti_motion(self) -> None:
+        self.vx = 0.0
+        self.vy = self.confetti_vy
+        self.y += self.vy * self.config.dt
+
+    def _update_confetti_symbols(self) -> None:
+        self.head_age += 1
+        if self.head_age >= self.head_change_after:
+            self.confetti_ch = self.randomizer.rnd.choice(self.config.confetti_frames)
+            self.head_age = 0
+            self.head_change_after = self.randomizer.random_change_delay(
+                self.config.head_change_base,
+                self.config.head_change_delta,
+            )
+
+        for point in self.trail:
+            point.age += 1
+            if point.age >= point.change_after:
+                point.ch = self.randomizer.rnd.choice(self.config.confetti_frames)
+                point.age = 0
+                point.change_after = self.randomizer.random_change_delay(
+                    self.config.tail_change_base,
+                    self.config.tail_change_delta,
+            )
+
+    def _update_confetti(self) -> None:
+        self.show_head = False
+        self.vx = 0.0
+        self.y += self.config.g * self.config.dt
+        self.confetti_age += 1
+
+        if self.confetti_age % 2 == 0:
+            self.confetti_ch = self.randomizer.rnd.choice(self.confetti_ch)
 
     def _add_tail_point(self) -> None:
         self.trail.appendleft(
             TailPoint(
             x=self.x,
             y=self.y,
-            ch=random.choice(self.config.tail_frames),
+            ch=self.randomizer.rnd.choice(self.config.confetti_frames if self.confetti_mode else self.config.tail_frames),
             age=0,
             change_after=self.randomizer.random_change_delay(self.config.tail_change_base, self.config.tail_change_delta),
         )
@@ -131,10 +199,13 @@ class Particle:
 
     def _fade_particle(self) -> None:
         self.show_head = False
+
+        if not self.confetti_mode:
+            self.confetti_mode = True
+            self.confetti_age = 0
+
         if self.trail:
             self.trail.pop()
-        else:
-            self.alive = False
 
     def _update_tail_symbols(self) -> None:
         for point in self.trail:
@@ -165,11 +236,11 @@ class Config():
 
     g: float = 9.81                             # ускорение свободного падения
 
-    v_min: float = 16.0                          # минимальная начальная скорость
-    v_max: float = 16.0                             # базовая начальная скорость
+    v_min: float = 0.0                          # минимальная начальная скорость
+    v_max: float = 16.0                         # базовая начальная скорость
 
-    num_particles_min: int = 4                    # число частиц
-    num_particles_max: int = 4
+    num_particles_min: int = 150                # число частиц
+    num_particles_max: int = 200
 
     head_frames: list[str] = field(
         default_factory=lambda: list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -179,7 +250,17 @@ class Config():
         default_factory=lambda: list("0123456789")
     )                                           # символы хвоста
 
-    tail_len_min: int = 15                          # длина хвоста
+    confetti_frames: list[str] = field(
+        default_factory=lambda: list("()|\\?/.!")
+    )
+
+    confetti_init_coef_for_vy: float = 0.5
+    confetti_init_vy: float = field(init = False)
+
+    confetti_lifetime_min: int = 50
+    confetti_lifetime_max: int = 70
+
+    tail_len_min: int = 15                      # длина хвоста
     tail_len_max: int = 20
 
     tail_change_base: int = 20                  # базовый интервал смены хвоста
@@ -191,9 +272,10 @@ class Config():
     death_base: int = 120                       # базовое время жизни
     death_delta: int = 5                        # разброс времени жизни
 
-    is_or_not_bold = [True]              #[False]: только обычные, [True]: только жирыне, [False, True]: оба варианта
+    is_or_not_bold = [True]                     #[False]: только обычные, [True]: только жирыне, [False, True]: оба варианта
+    has_or_not_confetti = [False, True]
 
-    time_delay_to_a_new_firework: int = 130
+    time_delay_to_a_new_firework: int = 200
 
     firework_color_schemas: list[list[int]] = field(
         default_factory=lambda: [[6,9,12], [0], [0,3], [18], [12,15,18], [0,3,6,9,12,15,18], [21], [24], [27]]
@@ -207,6 +289,7 @@ class Config():
         if self.v_min > self.v_max:
             raise ValueError("v_min should not greater that v")
         self.dt = 1.0 / self.fps
+        self.confetti_init_vy = self.g * self.confetti_init_coef_for_vy
 
 
 class CursesSetup:
@@ -324,6 +407,7 @@ class Firework:
         self.tail_len = randomizer.rnd.randint(config.tail_len_min, config.tail_len_max)
         self.num_particles = randomizer.rnd.randint(config.num_particles_min, config.num_particles_max)
         self.is_bold: bool = randomizer.rnd.choice(config.is_or_not_bold)
+        self.has_confetti: bool = randomizer.rnd.choice(config.has_or_not_confetti)
 
         self.particles: list[Particle] = self.generate_particles(config, setup, randomizer, stdscr)
         
