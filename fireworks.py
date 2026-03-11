@@ -27,7 +27,8 @@ class Particle:
         stdscr: curses.window, 
         cx: float, 
         cy: float,
-        color_scheme_bunch: list[int]
+        color_scheme_bunch: list[int],
+        tail_len: int
         ):
 
         self.x = cx
@@ -41,8 +42,9 @@ class Particle:
         self.head_age: int = 0
         self.head_change_after: int = randomizer.random_change_delay(config.head_change_base, config.head_change_delta)
         self.death_after: int = randomizer.random_death_after()
-        self.trail: deque[TailPoint] = deque(maxlen=config.tail_len)
+        self.trail: deque[TailPoint] = deque(maxlen=tail_len)
         self.color_scheme = randomizer.rnd.choice(color_scheme_bunch) if len(color_scheme_bunch) == 1 else color_scheme_bunch[0]
+        self.tail_len = tail_len
         self.config = config
         self.setup = setup
         self.randomizer = randomizer
@@ -61,7 +63,7 @@ class Particle:
                 try:
                     if curses.has_colors():
                         if self.age < self.death_after:
-                            pair = self.color_scheme + 2 if i < self.config.tail_len // 2 else self.color_scheme + 3
+                            pair = self.color_scheme + 2 if i < self.tail_len // 2 else self.color_scheme + 3
                         else:
                             pair = self.color_scheme + 3
                         attr = curses.color_pair(pair)
@@ -161,7 +163,8 @@ class Config():
     v_min: float = 0.0                          # минимальная начальная скорость
     v_max: float = 16.0                             # базовая начальная скорость
 
-    num_particles: int = 150                    # число частиц
+    num_particles_min: int = 100                    # число частиц
+    num_particles_max: int = 200
 
     head_frames: list[str] = field(
         default_factory=lambda: list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -171,7 +174,8 @@ class Config():
         default_factory=lambda: list("0123456789")
     )                                           # символы хвоста
 
-    tail_len: int = 10                          # длина хвоста
+    tail_len_min: int = 0                          # длина хвоста
+    tail_len_max: int = 20
 
     tail_change_base: int = 20                  # базовый интервал смены хвоста
     tail_change_delta: int = 5                  # разброс интервала хвоста
@@ -182,7 +186,7 @@ class Config():
     death_base: int = 120                        # базовое время жизни
     death_delta: int = 5                        # разброс времени жизни
 
-    time_delay_to_a_new_firework: int = 150
+    time_delay_to_a_new_firework: int = 250
 
     firework_color_schemas: list[list[int]] = field(
         default_factory=lambda: [[6,9,12], [0], [0,3], [18], [12,15,18], [0,3,6,9,12,15,18], [21], [24], [27]]
@@ -310,15 +314,18 @@ class Firework:
 
         self.color_scheme_bunch = randomizer.rnd.choice(config.firework_color_schemas)
 
+        self.tail_len = randomizer.rnd.randint(config.tail_len_min, config.tail_len_max)
+        self.num_particles = randomizer.rnd.randint(config.num_particles_min, config.num_particles_max)
+
         self.particles: list[Particle] = self.generate_particles(config, setup, randomizer, stdscr)
         
     def generate_particles(self, config: Config, setup: ScreenMapper, randomizer: Randomizer, stdscr: curses.window):
         particles: list[Particle] = []
 
-        for i in range(config.num_particles):
-            phi = 2.0 * math.pi * i / config.num_particles
+        for i in range(self.num_particles):
+            phi = 2.0 * math.pi * i / self.num_particles
             v = random.uniform(config.v_min, config.v_max)
-            particles.append(Particle(phi, v, config, setup, randomizer, stdscr, self.cx, self.cy, self.color_scheme_bunch))
+            particles.append(Particle(phi, v, config, setup, randomizer, stdscr, self.cx, self.cy, self.color_scheme_bunch, self.tail_len))
 
         return particles
 
