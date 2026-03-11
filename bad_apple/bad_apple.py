@@ -4,16 +4,23 @@
 from __future__ import annotations
 import cv2
 from cv2.typing import MatLike
+from pathlib import Path
 import curses
 import time
 import argparse
 import numpy as np
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
+
 
 @dataclass
-class Config:
-    ASCII_CHARS: str = "#@%* "
+class Config():
+
+    base_dir: ClassVar[Path] = Path(__file__).resolve().parent
+    default_video: ClassVar[Path] = base_dir / "bad_apple.mp4"
+
+    ascii_chars: str = "#@%* "
+    color_schema: int = 3
 
 class CursesSetup:
     @staticmethod
@@ -26,6 +33,8 @@ class CursesSetup:
             curses.start_color()
             curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
             curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
+            curses.init_pair(3, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
+            curses.init_pair(4, curses.COLOR_BLUE, curses.COLOR_BLACK)
 
 class ScreenMapper:
     def __init__(self, stdscr: curses.window, config: Config):
@@ -49,8 +58,8 @@ class ConvertorVideo2ASCII:
     def _pixel2ascii(self, pixel_value: int | np.uint8) -> str:
         """Преобразует значение яркости (0-255) в символ ASCII."""
 
-        index: int = int(pixel_value / 255 * (len(self.config.ASCII_CHARS) - 1))
-        return self.config.ASCII_CHARS[index]
+        index: int = int(pixel_value / 255 * (len(self.config.ascii_chars) - 1))
+        return self.config.ascii_chars[index]
 
     def _video2gray(self, resized: MatLike) -> MatLike:
 
@@ -117,7 +126,7 @@ class RenderVideo:
         for y, line in enumerate(ascii_frame):
             if y < self.setup.height:
                 try:
-                    self.stdscr.addstr(y, 0, line[:self.setup.width], curses.color_pair(2))
+                    self.stdscr.addstr(y, 0, line[:self.setup.width], curses.color_pair(self.config.color_schema))
                 except curses.error:
                     pass
         self.stdscr.refresh()
@@ -129,6 +138,7 @@ def main(stdscr: curses.window, video_path: str) -> None:
     CursesSetup.setup_screen(stdscr)
 
     config: Config = Config()
+    # config_1: Config = Config()
     setup: ScreenMapper = ScreenMapper(stdscr, config)
     convertor: ConvertorVideo2ASCII = ConvertorVideo2ASCII(config)
 
@@ -167,7 +177,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "video",
         nargs="?",
-        default="bad_apple.mp4",
+        default=Config.default_video,
         help="Путь к видеофайлу (по умолчанию bad_apple.mp4)",
     )
     args: argparse.Namespace = parser.parse_args()
