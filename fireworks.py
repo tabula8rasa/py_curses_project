@@ -37,7 +37,7 @@ class Particle:
         self.age: int = 0
         self.alive: bool = True
         self.show_head: bool = True
-        self.head_ch: str = random.choice(config.head_frames)
+        self.head_ch: str = randomizer.rnd.choice(config.head_frames)
         self.head_age: int = 0
         self.head_change_after: int = randomizer.random_change_delay(config.head_change_base, config.head_change_delta)
         self.death_after: int = randomizer.random_death_after()
@@ -67,9 +67,9 @@ class Particle:
                         attr = curses.color_pair(pair)
                         if i < 2:
                             attr |= curses. A_BOLD
-                        self.stdscr.addch(sy, sx, point.ch, attr | curses.A_BOLD)
+                        self.stdscr.addch(sy, sx, point.ch, attr)
                     else:
-                        self.stdscr.addch(sy, sx, point.ch, curses.A_BOLD)
+                        self.stdscr.addch(sy, sx, point.ch)
                 except curses.error:
                     pass
 
@@ -83,7 +83,7 @@ class Particle:
         if 0 <= hy < self.setup.height and 0 <= hx < self.setup.width:
             try:
                 if curses.has_colors():
-                    self.stdscr.addch(hy, hx, self.head_ch, curses.color_pair(self.color_scheme + 1) | curses.A_BOLD)
+                    self.stdscr.addch(hy, hx, self.head_ch, curses.color_pair(self.color_scheme + 1))
                 else:
                     self.stdscr.addch(hy, hx, self.head_ch)
             except curses.error:
@@ -159,7 +159,7 @@ class Config():
     g: float = 9.81                             # ускорение свободного падения
 
     v_min: float = 0.0                          # минимальная начальная скорость
-    v: float = 16.0                             # базовая начальная скорость
+    v_max: float = 16.0                             # базовая начальная скорость
 
     num_particles: int = 150                    # число частиц
 
@@ -171,7 +171,7 @@ class Config():
         default_factory=lambda: list("0123456789")
     )                                           # символы хвоста
 
-    tail_len: int = 15                         # длина хвоста
+    tail_len: int = 10                          # длина хвоста
 
     tail_change_base: int = 20                  # базовый интервал смены хвоста
     tail_change_delta: int = 5                  # разброс интервала хвоста
@@ -193,6 +193,8 @@ class Config():
             raise ValueError("fps must be > 0")
         if self.scale_x <= 0 or self.scale_y <= 0:
             raise ValueError("scale_x and scale_y must be > 0")
+        if self.v_min > self.v_max:
+            raise ValueError("v_min should not greater that v")
         self.dt = 1.0 / self.fps
 
 
@@ -315,7 +317,7 @@ class Firework:
 
         for i in range(config.num_particles):
             phi = 2.0 * math.pi * i / config.num_particles
-            v = random.uniform(config.v_min, config.v)
+            v = random.uniform(config.v_min, config.v_max)
             particles.append(Particle(phi, v, config, setup, randomizer, stdscr, self.cx, self.cy, self.color_scheme_bunch))
 
         return particles
@@ -344,9 +346,8 @@ def run(stdscr: curses.window) -> None:
     CursesSetup.setup_screen(stdscr)
 
     config = Config()
-    rnd = random.Random(42)
     setup = ScreenMapper(stdscr, config)
-    randomizer = Randomizer(config, rnd)
+    randomizer = Randomizer(config, random.Random())
 
     fireworks = [Firework(config, setup, randomizer, stdscr)]
 
@@ -358,7 +359,7 @@ def run(stdscr: curses.window) -> None:
         timer.counter += 1
 
         key = stdscr.getch()
-        if key in (ord("q"), 27):
+        if key in (ord("q"), ord("Q"), 27):
             break
 
         stdscr.erase()
@@ -373,7 +374,7 @@ def run(stdscr: curses.window) -> None:
         if timer.counter == delay:
             fireworks.append(Firework(config, setup, randomizer, stdscr))
             timer.counter = 0
-            delay = int(config.time_delay_to_a_new_firework - (random.random()*(config.time_delay_to_a_new_firework//2)))
+            delay = int(config.time_delay_to_a_new_firework - (randomizer.rnd.random()*(config.time_delay_to_a_new_firework//2)))
 
 
 
