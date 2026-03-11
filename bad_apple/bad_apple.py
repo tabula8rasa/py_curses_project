@@ -2,35 +2,14 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import annotations
-import cv2
 from cv2.typing import MatLike
 from pathlib import Path
+import cv2
 import curses
 import time
 import argparse
 import numpy as np
 from typing import Any, ClassVar
-
-
-
-class Config():
-
-    color_map: ClassVar[dict[str, int]] = {
-        "r": 1,
-        "g": 2,
-        "m": 3,
-        "b": 4,
-        "w": 5
-    }
-    ascii_chars: ClassVar[str] = "#@%* "
-
-    def __init__(self, video_path: str, color_schema_name: str, is_bold: bool):
-
-        self.video_path = Path(__file__).resolve().parent  / "bad_apple.mp4"
-        self.color_schema = self.color_map[color_schema_name]
-        self.is_bold = is_bold
-
-
 
 class CursesSetup:
     @staticmethod
@@ -46,6 +25,34 @@ class CursesSetup:
             curses.init_pair(3, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
             curses.init_pair(4, curses.COLOR_BLUE, curses.COLOR_BLACK)
 
+
+class Config:
+
+    color_map: ClassVar[dict[str, int]] = {
+        "r": 1,
+        "g": 2,
+        "m": 3,
+        "b": 4,
+        "w": 5
+    }
+    ascii_chars: ClassVar[str] = "#@%* "
+
+    def __init__(self, stdscr: curses.window, video_path: str, color_schema_name: str, is_bold: bool):
+
+        self.stdscr = stdscr
+        self.video_path = Path(__file__).resolve().parent  / "bad_apple.mp4" if video_path == '__default__' else video_path
+        self.color_schema = self.color_map[color_schema_name]
+        self.is_bold = is_bold
+
+        self.height, self.width = self.stdscr.getmaxyx()
+
+    def config_fps_and_delay(self, video: Video):
+        _fps = float(video.capture.get(cv2.CAP_PROP_FPS))
+
+        self.fps = _fps if _fps > 0 else 30 
+        self.delay = 1.0 / self.fps
+
+"""
 class ScreenMapper:
     def __init__(self, stdscr: curses.window, config: Config):
         self.stdscr = stdscr
@@ -60,23 +67,11 @@ class ScreenMapper:
 
         self.fps = _fps if _fps > 0 else 30 
         self.delay = 1.0 / self.fps
+"""
 
-class ConvertorVideo2ASCII:
+class ConvertorFrame2ASCII:
     def __init__(self, config: Config) -> None:
         self.config = config
-
-    def _pixel2ascii(self, pixel_value: int | np.uint8) -> str:
-        """Преобразует значение яркости (0-255) в символ ASCII."""
-
-        index: int = int(pixel_value / 255 * (len(self.config.ascii_chars) - 1))
-        return self.config.ascii_chars[index]
-
-    def _video2gray(self, resized: MatLike) -> MatLike:
-
-        if len(resized.shape) == 3:
-            return cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
-        
-        return resized
 
     def frame2ascii(self,frame: np.ndarray, new_width: int, new_height: int) -> list[str]:
         resized: MatLike = cv2.resize(
@@ -94,6 +89,19 @@ class ConvertorVideo2ASCII:
             ascii_img.append("".join(row_chars))
         
         return ascii_img
+    
+    def _video2gray(self, resized: MatLike) -> MatLike:
+
+        if len(resized.shape) == 3:
+            return cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
+        
+        return resized
+    
+    def _pixel2ascii(self, pixel_value: int | np.uint8) -> str:
+        """Преобразует значение яркости (0-255) в символ ASCII."""
+
+        index: int = int(pixel_value / 255 * (len(self.config.ascii_chars) - 1))
+        return self.config.ascii_chars[index]
     
 class Video:
     def __init__(self, video_path: str):
@@ -147,10 +155,10 @@ def main(stdscr: curses.window, video_path: str, color_schema_name: str, is_bold
     
     CursesSetup.setup_screen(stdscr)
 
-    config: Config = Config(video_path, color_schema_name, is_bold)
+    config: Config = Config(stdscr, video_path, color_schema_name, is_bold)
 
-    setup: ScreenMapper = ScreenMapper(stdscr, config)
-    convertor: ConvertorVideo2ASCII = ConvertorVideo2ASCII(config)
+    #setup: ScreenMapper = ScreenMapper(stdscr, config)
+    convertor: ConvertorFrame2ASCII = ConvertorFrame2ASCII(config)
 
     video: Video = Video(video_path)
     rander: RenderVideo = RenderVideo(config, stdscr, setup, convertor)
