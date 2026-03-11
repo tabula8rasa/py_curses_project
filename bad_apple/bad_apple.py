@@ -12,7 +12,7 @@ import numpy as np
 from typing import Any, ClassVar
 
 
-class ArgsParser:
+class ArgParser:
     @staticmethod
     def parse() -> argparse.Namespace:
         parser: argparse.ArgumentParser = argparse.ArgumentParser(
@@ -51,17 +51,21 @@ class Config:
     }
     ascii_chars: ClassVar[str] = "#@%* "
 
-    def __init__(self, stdscr: curses.window, video_path: str, color_schema_name: str, is_bold: bool):
+    def __init__(self, stdscr: curses.window, video_path: str, color_scheme_name: str, is_bold: bool):
 
         self.stdscr = stdscr
-        self.video_path: Path | str = Path(__file__).resolve().parent  / "bad_apple.mp4" if video_path == '__default__' else video_path
-        self.color_schema = self.color_map[color_schema_name]
+        self.video_path: Path = (
+            Path(__file__).resolve().parent  / "bad_apple.mp4" 
+            if video_path == '__default__' 
+            else Path(video_path)
+        )
+        self.color_scheme = self.color_map[color_scheme_name]
         self.is_bold = is_bold
         self.height, self.width = self.stdscr.getmaxyx()
         self._validate_video_path(self.video_path)
         self._setup_screen(self.stdscr)
 
-    def config_fps_and_delay(self, video: Video):
+    def set_fps_and_delay(self, video: Video):
         _fps = float(video.capture.get(cv2.CAP_PROP_FPS))
 
         self.fps = _fps if _fps > 0 else 30 
@@ -88,36 +92,37 @@ class Config:
             curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
             curses.init_pair(3, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
             curses.init_pair(4, curses.COLOR_BLUE, curses.COLOR_BLACK)
+            curses.init_pair(5, curses.COLOR_WHITE, curses.COLOR_BLACK)
     
-class ConvertorFrame2ASCII:
+class ConverterFrameToASCII:
     def __init__(self, config: Config) -> None:
         self.config = config
 
-    def frame2ascii(self, frame: np.ndarray, new_width: int, new_height: int) -> list[str]:
+    def frame_to_ascii(self, frame: np.ndarray, new_width: int, new_height: int) -> list[str]:
         resized: MatLike = cv2.resize(
             frame, (new_width, new_height), interpolation=cv2.INTER_AREA
         )
 
-        gray_video = self._video2gray(resized)
+        gray_video = self._video_to_gray(resized)
 
         ascii_img: list[str] = []
         for y in range(new_height):
             row_chars: list[str] = []
             for x in range(new_width):
                 pixel = int(gray_video[y, x]) 
-                row_chars.append(self._pixel2ascii(pixel))
+                row_chars.append(self._pixel_to_ascii(pixel))
             ascii_img.append("".join(row_chars))
         
         return ascii_img
     
-    def _video2gray(self, resized: MatLike) -> MatLike:
+    def _video_to_gray(self, resized: MatLike) -> MatLike:
 
         if len(resized.shape) == 3:
             return cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
         
         return resized
     
-    def _pixel2ascii(self, pixel_value: int | np.uint8) -> str:
+    def _pixel_to_ascii(self, pixel_value: int | np.uint8) -> str:
         """Преобразует значение яркости (0-255) в символ ASCII."""
 
         index: int = int(pixel_value / 255 * (len(self.config.ascii_chars) - 1))
@@ -140,7 +145,7 @@ class Timer:
             time.sleep(delay - elapsed)
 
 class RenderVideo:
-    def __init__(self, video: Video, config: Config, convertor: ConvertorFrame2ASCII):
+    def __init__(self, video: Video, config: Config, convertor: ConverterFrameToASCII):
         self.video = video
         self.config = config
         self.convertor = convertor
@@ -158,22 +163,25 @@ class RenderVideo:
         for y, line in enumerate(self.ascii_frame):
             if y < self.config.height:
                 try:
-                    self.config.stdscr.addstr(y, 0, line[:self.config.width], curses.color_pair(self.config.color_schema))
+                    attr = curses.color_pair(self.config.color_scheme)
+                    if self.config.is_bold:
+                        attr |= curses.A_BOLD
+                    self.config.stdscr.addstr(y, 0, line[:self.config.width], attr)
                 except curses.error:
                     pass
         self.config.stdscr.refresh()
 
-def main(stdscr: curses.window, video_path: str, color_schema_name: str, is_bold: bool) -> None:
+def main(stdscr: curses.window, video_path: str, color_scheme_name: str, is_bold: bool) -> None:
 
-    config: Config = Config(stdscr, video_path, color_schema_name, is_bold)
+    config: Config = Config(stdscr, video_path, color_scheme_name, is_bold)
 
-    convertor: ConvertorFrame2ASCII = ConvertorFrame2ASCII(config)
+    convertor: ConverterFrameToASCII = ConverterFrameToASCII(config)
 
     video: Video = Video(config.video_path)
 
     render: RenderVideo = RenderVideo(video, config, convertor)
 
-    config.config_fps_and_delay(video)
+    config.set_fps_and_delay(video)
 
     timer = Timer()
 
@@ -185,7 +193,7 @@ def main(stdscr: curses.window, video_path: str, color_schema_name: str, is_bold
         if not render.ret:
             break
 
-        render.ascii_frame = convertor.frame2ascii(render.frame, config.width, config.height)
+        render.ascii_frame = convertor.frame_to_ascii(render.frame, config.width, config.height)
 
         render.render_frame()
         
@@ -198,6 +206,6 @@ def main(stdscr: curses.window, video_path: str, color_schema_name: str, is_bold
     video.capture.release()
 
 if __name__ == "__main__":
-    args = ArgsParser.parse()
+    args = ArgParser.parse()
 
     curses.wrapper(main, args.path, args.color, args.bold)
