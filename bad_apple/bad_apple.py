@@ -25,7 +25,6 @@ class CursesSetup:
             curses.init_pair(3, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
             curses.init_pair(4, curses.COLOR_BLUE, curses.COLOR_BLACK)
 
-
 class Config:
 
     color_map: ClassVar[dict[str, int]] = {
@@ -40,14 +39,11 @@ class Config:
     def __init__(self, stdscr: curses.window, video_path: str, color_schema_name: str, is_bold: bool):
 
         self.stdscr = stdscr
-        self.video_path = Path(__file__).resolve().parent  / "bad_apple.mp4" if video_path == '__default__' else video_path
-
-        self.validate_video_path(self.video_path)
-
+        self.video_path: Path | str = Path(__file__).resolve().parent  / "bad_apple.mp4" if video_path == '__default__' else video_path
         self.color_schema = self.color_map[color_schema_name]
         self.is_bold = is_bold
-
         self.height, self.width = self.stdscr.getmaxyx()
+        self.validate_video_path(self.video_path)
 
     def config_fps_and_delay(self, video: Video):
         _fps = float(video.capture.get(cv2.CAP_PROP_FPS))
@@ -99,34 +95,30 @@ class ConvertorFrame2ASCII:
         return self.config.ascii_chars[index]
     
 class Video:
-    def __init__(self, video_path: str):
+    def __init__(self, video_path: Path | str):
         self.capture = cv2.VideoCapture(video_path)
-        self.video_path = video_path
         self.ret: bool
         self.frame: np.ndarray[Any, np.dtype[np.generic]]
     
-        
     def read_frame(self):
         self.ret, self.frame = self.capture.read()
 
 class Timer:
     def __init__(self):
-        self.start_time: float = 0
-        self.elapsed: float = 0
+        self.__start_time: float = 0
 
     def set_start_time(self):
-        self.start_time = time.time()
+        self.__start_time = time.time()
     
     def delay(self, delay: float):
-        elapsed = time.time() - self.start_time
+        elapsed = time.time() - self.__start_time
         if elapsed < delay:
             time.sleep(delay - elapsed)
 
 class RenderVideo:
-    def __init__(self, config: Config, stdscr: curses.window, setup: ScreenMapper, convertor: ConvertorVideo2ASCII):
+    def __init__(self, config: Config, stdscr: curses.window, convertor: ConvertorFrame2ASCII):
         self.config = config
         self.stdscr = stdscr
-        self.setup = setup
         self.convertor = convertor
     
     def render_frame(self, ascii_frame: list[str]):
@@ -134,9 +126,9 @@ class RenderVideo:
         self.stdscr.clear()
 
         for y, line in enumerate(ascii_frame):
-            if y < self.setup.height:
+            if y < self.config.height:
                 try:
-                    self.stdscr.addstr(y, 0, line[:self.setup.width], curses.color_pair(self.config.color_schema))
+                    self.stdscr.addstr(y, 0, line[:self.config.width], curses.color_pair(self.config.color_schema))
                 except curses.error:
                     pass
         self.stdscr.refresh()
@@ -149,9 +141,10 @@ def main(stdscr: curses.window, video_path: str, color_schema_name: str, is_bold
 
     convertor: ConvertorFrame2ASCII = ConvertorFrame2ASCII(config)
 
-    video: Video = Video(video_path)
-    rander: RenderVideo = RenderVideo(config, stdscr, setup, convertor)
+    video: Video = Video(config.video_path)
+    rander: RenderVideo = RenderVideo(config, stdscr, convertor)
 
+    config.config_fps_and_delay(video)
 
     timer = Timer()
 
@@ -163,45 +156,48 @@ def main(stdscr: curses.window, video_path: str, color_schema_name: str, is_bold
         if not video.ret:
             break
 
-        ascii_frame: list[str] = convertor.frame2ascii(video.frame, setup.width, setup.height)
+        ascii_frame: list[str] = convertor.frame2ascii(video.frame, config.width, config.height)
 
         rander.render_frame(ascii_frame)
         
         key: int = stdscr.getch()
-        if key == ord('q') or key == ord('Q'):
+        if key in [ord('q'),ord('Q')]:
             break
 
-        timer.delay(setup.delay)
+        timer.delay(config.delay)
 
     video.capture.release()
 
 
-if __name__ == "__main__":
-    parser: argparse.ArgumentParser = argparse.ArgumentParser(
-        description="Воспроизведение Bad Apple в терминале через ASCII-графику"
-    )
-    parser.add_argument(
-        "-p",
-        "--path",
-        default="__default__",
-        help="Путь к видеофайлу (по умолчанию <папка_с_этим_файлом>/bad_apple.mp4)",
-    )
-    parser.add_argument(
-        "-c",
-        "--color",
-        choices=["r", "g", "b", "m", "w"],
-        default="g",
-        help=(
-            "Цвет символов ASCII. "
-            "Этим цветом будут отображаться символы."
-        ),
-    )
-    parser.add_argument(
-        "-b",
-        "--bold",
-        action="store_true",
-        help="Включить жирное отображение символов ASCII.",
-    )
-    args: argparse.Namespace = parser.parse_args()
+class ArgsParser:
+    @staticmethod
+    def parse() -> argparse.Namespace:
+        parser: argparse.ArgumentParser = argparse.ArgumentParser(
+            description="Воспроизведение Bad Apple в терминале через ASCII-графику"
+        )
+        parser.add_argument(
+            "-p",
+            "--path",
+            default="__default__",
+            help="Путь к видеофайлу (по умолчанию <папка_с_этим_файлом>/bad_apple.mp4)",
+        )
+        parser.add_argument(
+            "-c",
+            "--color",
+            choices=["r", "g", "b", "m", "w"],
+            default="g",
+            help="Цвет символов ASCII. Этим цветом будут отображаться символы.",
+        )
+        parser.add_argument(
+            "-b",
+            "--bold",
+            action="store_true",
+            help="Включить жирное отображение символов ASCII.",
+        )
 
-    curses.wrapper(main, args.video, args.color, args.bold)
+        return parser.parse_args()
+    
+if __name__ == "__main__":
+    args = ArgsParser.parse()
+
+    curses.wrapper(main, args.path, args.color, args.bold)
