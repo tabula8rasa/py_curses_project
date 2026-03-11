@@ -88,11 +88,12 @@ class ConvertorVideo2ASCII:
 class Video:
     def __init__(self, video_path: str):
         self.capture = cv2.VideoCapture(video_path)
+        self._validation()
         self.video_path = video_path
         self.ret: bool
         self.frame: np.ndarray[Any, np.dtype[np.generic]]
     
-    def __post_init__(self):
+    def _validation(self):
         if not self.capture.isOpened():
             raise IOError(f"Не удалось открыть видео: {self.video_path}")
         
