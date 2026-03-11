@@ -25,6 +25,34 @@ class CursesSetup:
             curses.init_pair(3, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
             curses.init_pair(4, curses.COLOR_BLUE, curses.COLOR_BLACK)
 
+class ArgsParser:
+    @staticmethod
+    def parse() -> argparse.Namespace:
+        parser: argparse.ArgumentParser = argparse.ArgumentParser(
+            description="Воспроизведение Bad Apple в терминале через ASCII-графику"
+        )
+        parser.add_argument(
+            "-p",
+            "--path",
+            default="__default__",
+            help="Путь к видеофайлу (по умолчанию <папка_с_этим_файлом>/bad_apple.mp4)",
+        )
+        parser.add_argument(
+            "-c",
+            "--color",
+            choices=["r", "g", "b", "m", "w"],
+            default="g",
+            help="Цвет символов ASCII. Этим цветом будут отображаться символы.",
+        )
+        parser.add_argument(
+            "-b",
+            "--bold",
+            action="store_true",
+            help="Включить жирное отображение символов ASCII.",
+        )
+
+        return parser.parse_args()
+
 class Config:
 
     color_map: ClassVar[dict[str, int]] = {
@@ -97,11 +125,6 @@ class ConvertorFrame2ASCII:
 class Video:
     def __init__(self, video_path: Path | str):
         self.capture = cv2.VideoCapture(video_path)
-        self.ret: bool
-        self.frame: np.ndarray[Any, np.dtype[np.generic]]
-    
-    def read_frame(self):
-        self.ret, self.frame = self.capture.read()
 
 class Timer:
     def __init__(self):
@@ -116,22 +139,28 @@ class Timer:
             time.sleep(delay - elapsed)
 
 class RenderVideo:
-    def __init__(self, config: Config, stdscr: curses.window, convertor: ConvertorFrame2ASCII):
+    def __init__(self, video: Video, config: Config, convertor: ConvertorFrame2ASCII):
+        self.video = video
         self.config = config
-        self.stdscr = stdscr
         self.convertor = convertor
+        self.ret: bool
+        self.frame: np.ndarray[Any, np.dtype[np.generic]]
+        self.ascii_frame: list[str]
+
+    def read_frame(self):
+        self.ret, self.frame = self.video.capture.read()
     
-    def render_frame(self, ascii_frame: list[str]):
+    def render_frame(self):
 
-        self.stdscr.clear()
+        self.config.stdscr.clear()
 
-        for y, line in enumerate(ascii_frame):
+        for y, line in enumerate(self.ascii_frame):
             if y < self.config.height:
                 try:
-                    self.stdscr.addstr(y, 0, line[:self.config.width], curses.color_pair(self.config.color_schema))
+                    self.config.stdscr.addstr(y, 0, line[:self.config.width], curses.color_pair(self.config.color_schema))
                 except curses.error:
                     pass
-        self.stdscr.refresh()
+        self.config.stdscr.refresh()
 
 def main(stdscr: curses.window, video_path: str, color_schema_name: str, is_bold: bool) -> None:
     
@@ -142,7 +171,8 @@ def main(stdscr: curses.window, video_path: str, color_schema_name: str, is_bold
     convertor: ConvertorFrame2ASCII = ConvertorFrame2ASCII(config)
 
     video: Video = Video(config.video_path)
-    rander: RenderVideo = RenderVideo(config, stdscr, convertor)
+
+    render: RenderVideo = RenderVideo(video, config, convertor)
 
     config.config_fps_and_delay(video)
 
@@ -151,14 +181,14 @@ def main(stdscr: curses.window, video_path: str, color_schema_name: str, is_bold
     while True:
         timer.set_start_time()
 
-        video.read_frame()
+        render.read_frame()
 
-        if not video.ret:
+        if not render.ret:
             break
 
-        ascii_frame: list[str] = convertor.frame2ascii(video.frame, config.width, config.height)
+        render.ascii_frame = convertor.frame2ascii(render.frame, config.width, config.height)
 
-        rander.render_frame(ascii_frame)
+        render.render_frame()
         
         key: int = stdscr.getch()
         if key in [ord('q'),ord('Q')]:
@@ -168,35 +198,6 @@ def main(stdscr: curses.window, video_path: str, color_schema_name: str, is_bold
 
     video.capture.release()
 
-
-class ArgsParser:
-    @staticmethod
-    def parse() -> argparse.Namespace:
-        parser: argparse.ArgumentParser = argparse.ArgumentParser(
-            description="Воспроизведение Bad Apple в терминале через ASCII-графику"
-        )
-        parser.add_argument(
-            "-p",
-            "--path",
-            default="__default__",
-            help="Путь к видеофайлу (по умолчанию <папка_с_этим_файлом>/bad_apple.mp4)",
-        )
-        parser.add_argument(
-            "-c",
-            "--color",
-            choices=["r", "g", "b", "m", "w"],
-            default="g",
-            help="Цвет символов ASCII. Этим цветом будут отображаться символы.",
-        )
-        parser.add_argument(
-            "-b",
-            "--bold",
-            action="store_true",
-            help="Включить жирное отображение символов ASCII.",
-        )
-
-        return parser.parse_args()
-    
 if __name__ == "__main__":
     args = ArgsParser.parse()
 
