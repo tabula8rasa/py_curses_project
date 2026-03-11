@@ -41,6 +41,9 @@ class Config:
 
         self.stdscr = stdscr
         self.video_path = Path(__file__).resolve().parent  / "bad_apple.mp4" if video_path == '__default__' else video_path
+
+        self.validate_video_path(self.video_path)
+
         self.color_schema = self.color_map[color_schema_name]
         self.is_bold = is_bold
 
@@ -52,22 +55,14 @@ class Config:
         self.fps = _fps if _fps > 0 else 30 
         self.delay = 1.0 / self.fps
 
-"""
-class ScreenMapper:
-    def __init__(self, stdscr: curses.window, config: Config):
-        self.stdscr = stdscr
-        self.config = config
-        self.fps: float = 0.0
-        self.delay: float = 0.0
-
-        self.height, self.width = self.stdscr.getmaxyx()
-    
-    def config_fps_and_delay(self, video: Video):
-        _fps = float(video.capture.get(cv2.CAP_PROP_FPS))
-
-        self.fps = _fps if _fps > 0 else 30 
-        self.delay = 1.0 / self.fps
-"""
+    @staticmethod
+    def validate_video_path(video_path: Path | str) -> None:
+        capture = cv2.VideoCapture(video_path)
+        try:
+            if not capture.isOpened():
+                raise IOError(f"Не удалось открыть видео: {video_path}")
+        finally:
+            capture.release()
 
 class ConvertorFrame2ASCII:
     def __init__(self, config: Config) -> None:
@@ -110,11 +105,6 @@ class Video:
         self.ret: bool
         self.frame: np.ndarray[Any, np.dtype[np.generic]]
     
-        self._validation()
-
-    def _validation(self):
-        if not self.capture.isOpened():
-            raise IOError(f"Не удалось открыть видео: {self.video_path}")
         
     def read_frame(self):
         self.ret, self.frame = self.capture.read()
@@ -157,13 +147,11 @@ def main(stdscr: curses.window, video_path: str, color_schema_name: str, is_bold
 
     config: Config = Config(stdscr, video_path, color_schema_name, is_bold)
 
-    #setup: ScreenMapper = ScreenMapper(stdscr, config)
     convertor: ConvertorFrame2ASCII = ConvertorFrame2ASCII(config)
 
     video: Video = Video(video_path)
     rander: RenderVideo = RenderVideo(config, stdscr, setup, convertor)
 
-    setup.config_fps_and_delay(video)
 
     timer = Timer()
 
