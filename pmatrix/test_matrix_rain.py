@@ -8,7 +8,7 @@ from typing import Any, Protocol, cast
 
 from pytest import MonkeyPatch 
 
-import pmatrix as m
+import pmatrix.pmatrix as m
 
 
 class WindowLike(Protocol):
