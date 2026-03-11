@@ -62,6 +62,9 @@ class Config:
         self.color_scheme = self.color_map[color_scheme_name]
         self.is_bold = is_bold
         self.height, self.width = self.stdscr.getmaxyx()
+        self.fps = 30
+        self.delay = 1.0 / self.fps
+
         self._validate_video_path(self.video_path)
         self._setup_screen(self.stdscr)
 
@@ -72,7 +75,7 @@ class Config:
         self.delay = 1.0 / self.fps
 
     @staticmethod
-    def _validate_video_path(video_path: Path | str) -> None:
+    def _validate_video_path(video_path: Path ) -> None:
         capture = cv2.VideoCapture(video_path)
         try:
             if not capture.isOpened():
@@ -103,7 +106,7 @@ class ConverterFrameToASCII:
             frame, (new_width, new_height), interpolation=cv2.INTER_AREA
         )
 
-        gray_video = self._video_to_gray(resized)
+        gray_video = self._frame_to_gray(resized)
 
         ascii_img: list[str] = []
         for y in range(new_height):
@@ -115,7 +118,7 @@ class ConverterFrameToASCII:
         
         return ascii_img
     
-    def _video_to_gray(self, resized: MatLike) -> MatLike:
+    def _frame_to_gray(self, resized: MatLike) -> MatLike:
 
         if len(resized.shape) == 3:
             return cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
@@ -132,6 +135,10 @@ class Video:
     def __init__(self, video_path: Path | str):
         self.capture = cv2.VideoCapture(video_path)
 
+    def read_frame(self) -> tuple[bool, np.ndarray[Any, np.dtype[np.generic]]]:
+        ret, frame = self.capture.read()
+        return ret, frame
+    
 class Timer:
     def __init__(self):
         self.__start_time: float = 0
@@ -145,16 +152,14 @@ class Timer:
             time.sleep(delay - elapsed)
 
 class RenderVideo:
-    def __init__(self, video: Video, config: Config, convertor: ConverterFrameToASCII):
+    def __init__(self, video: Video, config: Config):
         self.video = video
         self.config = config
-        self.convertor = convertor
-        self.ret: bool
-        self.frame: np.ndarray[Any, np.dtype[np.generic]]
-        self.ascii_frame: list[str]
+        self.ret: bool = True
+        self.frame: np.ndarray[Any, np.dtype[np.generic]] | None = None
+        self.ascii_frame: list[str] = []
 
-    def read_frame(self):
-        self.ret, self.frame = self.video.capture.read()
+    
     
     def render_frame(self):
 
@@ -179,7 +184,7 @@ def main(stdscr: curses.window, video_path: str, color_scheme_name: str, is_bold
 
     video: Video = Video(config.video_path)
 
-    render: RenderVideo = RenderVideo(video, config, convertor)
+    render: RenderVideo = RenderVideo(video, config)
 
     config.set_fps_and_delay(video)
 
@@ -188,16 +193,16 @@ def main(stdscr: curses.window, video_path: str, color_scheme_name: str, is_bold
     while True:
         timer.set_start_time()
 
-        render.read_frame()
+        ret, frame = video.read_frame()
 
-        if not render.ret:
+        if not ret:
             break
 
-        render.ascii_frame = convertor.frame_to_ascii(render.frame, config.width, config.height)
+        render.ascii_frame = convertor.frame_to_ascii(frame, config.width, config.height)
 
         render.render_frame()
         
-        key: int = stdscr.getch()
+        key: int = config.stdscr.getch()
         if key in [ord('q'),ord('Q')]:
             break
 
