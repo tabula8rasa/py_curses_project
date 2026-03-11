@@ -11,19 +11,6 @@ import argparse
 import numpy as np
 from typing import Any, ClassVar
 
-class CursesSetup:
-    @staticmethod
-    def setup_screen(stdscr: curses.window) -> None:
-        curses.curs_set(0)
-        stdscr.nodelay(True)
-        stdscr.timeout(0)
-
-        if curses.has_colors():
-            curses.start_color()
-            curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
-            curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
-            curses.init_pair(3, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
-            curses.init_pair(4, curses.COLOR_BLUE, curses.COLOR_BLACK)
 
 class ArgsParser:
     @staticmethod
@@ -71,7 +58,8 @@ class Config:
         self.color_schema = self.color_map[color_schema_name]
         self.is_bold = is_bold
         self.height, self.width = self.stdscr.getmaxyx()
-        self.validate_video_path(self.video_path)
+        self._validate_video_path(self.video_path)
+        self._setup_screen(self.stdscr)
 
     def config_fps_and_delay(self, video: Video):
         _fps = float(video.capture.get(cv2.CAP_PROP_FPS))
@@ -80,7 +68,7 @@ class Config:
         self.delay = 1.0 / self.fps
 
     @staticmethod
-    def validate_video_path(video_path: Path | str) -> None:
+    def _validate_video_path(video_path: Path | str) -> None:
         capture = cv2.VideoCapture(video_path)
         try:
             if not capture.isOpened():
@@ -88,11 +76,24 @@ class Config:
         finally:
             capture.release()
 
+    @staticmethod
+    def _setup_screen(stdscr: curses.window) -> None:
+        curses.curs_set(0)
+        stdscr.nodelay(True)
+        stdscr.timeout(0)
+
+        if curses.has_colors():
+            curses.start_color()
+            curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
+            curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
+            curses.init_pair(3, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
+            curses.init_pair(4, curses.COLOR_BLUE, curses.COLOR_BLACK)
+    
 class ConvertorFrame2ASCII:
     def __init__(self, config: Config) -> None:
         self.config = config
 
-    def frame2ascii(self,frame: np.ndarray, new_width: int, new_height: int) -> list[str]:
+    def frame2ascii(self, frame: np.ndarray, new_width: int, new_height: int) -> list[str]:
         resized: MatLike = cv2.resize(
             frame, (new_width, new_height), interpolation=cv2.INTER_AREA
         )
@@ -163,8 +164,6 @@ class RenderVideo:
         self.config.stdscr.refresh()
 
 def main(stdscr: curses.window, video_path: str, color_schema_name: str, is_bold: bool) -> None:
-    
-    CursesSetup.setup_screen(stdscr)
 
     config: Config = Config(stdscr, video_path, color_schema_name, is_bold)
 
