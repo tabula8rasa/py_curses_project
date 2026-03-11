@@ -131,14 +131,11 @@ class RenderVideo:
                     pass
         self.stdscr.refresh()
 
-        
-
 def main(stdscr: curses.window, video_path: str) -> None:
     
     CursesSetup.setup_screen(stdscr)
 
     config: Config = Config()
-    # config_1: Config = Config()
     setup: ScreenMapper = ScreenMapper(stdscr, config)
     convertor: ConvertorVideo2ASCII = ConvertorVideo2ASCII(config)
 
