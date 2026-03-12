@@ -69,9 +69,9 @@ class Config:
         self._setup_screen(self.stdscr)
 
     def set_fps_and_delay(self, video: Video):
-        _fps = float(video.capture.get(cv2.CAP_PROP_FPS))
+        fps = float(video.capture.get(cv2.CAP_PROP_FPS))
 
-        self.fps = _fps if _fps > 0 else 30 
+        self.fps = fps if fps > 0 else 30 
         self.delay = 1.0 / self.fps
 
     @staticmethod
@@ -158,8 +158,6 @@ class RenderVideo:
         self.ret: bool = True
         self.frame: np.ndarray[Any, np.dtype[np.generic]] | None = None
         self.ascii_frame: list[str] = []
-
-    
     
     def render_frame(self):
 
