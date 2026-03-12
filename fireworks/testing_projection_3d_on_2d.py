@@ -77,8 +77,8 @@ def animate(points: list[Point], faces: list[list[int]]) -> None:
 
     clear()
 
-    for point in points:
-        render(*screen(*project(translate_z(rotate_xz(point, angle), dz))))
+    #for point in points:
+        #render(*screen(*project(translate_z(rotate_xz(point, angle), dz))))
 
     for face in faces:
         for i in range(0, len(face)):
