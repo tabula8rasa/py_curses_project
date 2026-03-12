@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/home/ilya/py_curses_project/.venv/bin/python
 # -*- coding: utf-8 -*-
 
 from __future__ import annotations
@@ -161,7 +161,7 @@ class RenderVideo:
     
     def render_frame(self):
 
-        self.config.stdscr.clear()
+        # self.config.stdscr.clear()
 
         for y, line in enumerate(self.ascii_frame):
             if y < self.config.height:
