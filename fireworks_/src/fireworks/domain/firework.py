@@ -29,7 +29,18 @@ class Firework:
         for i in range(self.num_particles):
             phi = 2.0 * math.pi * i / self.num_particles
             v = random.uniform(config.v_min, config.v_max)
-            particles.append(Particle(phi, v, config, setup, randomizer, stdscr, self.cx, self.cy, self.color_scheme_bunch, self.tail_len, self.is_bold))
+            particles.append(Particle(phi, 
+                v, 
+                config, 
+                setup, 
+                randomizer, 
+                stdscr, 
+                self.cx, self.cy, 
+                self.color_scheme_bunch, 
+                self.tail_len, 
+                self.is_bold,
+                self.has_confetti
+            ))
 
         return particles
 

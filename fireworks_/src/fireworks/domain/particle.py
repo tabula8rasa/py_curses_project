@@ -3,7 +3,6 @@ from __future__ import annotations
 import curses
 from collections import deque
 import math
-import random
 
 from fireworks.config import Config
 from fireworks.domain.tail_point import TailPoint
@@ -22,7 +21,8 @@ class Particle:
         cy: float,
         color_scheme_bunch: list[int],
         tail_len: int,
-        is_bold: bool
+        is_bold: bool,
+        has_confetti: bool
         ):
 
         self.x = cx
@@ -31,6 +31,7 @@ class Particle:
         self.vy = -v * math.sin(phi)
         self.age: int = 0
         self.alive: bool = True
+        self.fading: bool = False
         self.show_head: bool = True
         self.head_ch: str = randomizer.rnd.choice(config.head_frames)
         self.head_age: int = 0
@@ -40,9 +41,10 @@ class Particle:
         self.color_scheme = randomizer.rnd.choice(color_scheme_bunch) if len(color_scheme_bunch) == 1 else color_scheme_bunch[0]
         self.tail_len = tail_len
         self.is_bold = is_bold
+        self.has_confetti: bool = has_confetti
         self.confetti_mode: bool = False
         self.confetti_age: int = 0
-        self.confetti_lifetime: int = randomizer.rnd.randint(config.confetti_lifetime_min, config.confetti_lifetime_min)
+        self.confetti_lifetime: int = randomizer.rnd.randint(config.confetti_lifetime_min, config.confetti_lifetime_max)
         self.confetti_vy: float = config.confetti_init_vy
         self.confetti_ch: str = randomizer.rnd.choice(config.confetti_frames)
 
@@ -78,15 +80,13 @@ class Particle:
 
     def _draw_head(self) -> None:
 
-        if self.confetti_mode:
+        if self.confetti_mode and self.has_confetti:
             hx = self.setup.to_screen_x(self.x)
             hy = self.setup.to_screen_y(self.y)
 
             if 0 <= hy < self.setup.height and 0 <= hx < self.setup.width:
                 try:
                     attr = curses.color_pair(self.color_scheme + 3)
-                    # if self.is_bold:
-                    #     attr |= curses.A_BOLD
                     self.stdscr.addch(hy, hx, self.confetti_ch, attr)
                 except curses.error:
                     pass
@@ -120,15 +120,24 @@ class Particle:
 
         self.age += 1
 
+        if self.fading:
+            self._fade_particle()
+            if not self.trail:
+                self.alive = False
+            return
+
         if not self.confetti_mode:
             if self.age < self.death_after:
                 self._add_tail_point()
                 self._update_motion()
                 self._update_tail_symbols()
                 self._update_head_symbol()
-            else:
+            elif self.has_confetti:
                 self.confetti_mode = True
                 self.confetti_age = 0
+            else:
+                self.fading = True
+                self.show_head = False
         else:
             self._add_tail_point()
             self._update_confetti_motion()
@@ -163,15 +172,6 @@ class Particle:
                     self.config.tail_change_delta,
             )
 
-    def _update_confetti(self) -> None:
-        self.show_head = False
-        self.vx = 0.0
-        self.y += self.config.g * self.config.dt
-        self.confetti_age += 1
-
-        if self.confetti_age % 2 == 0:
-            self.confetti_ch = self.randomizer.rnd.choice(self.confetti_ch)
-
     def _add_tail_point(self) -> None:
         self.trail.appendleft(
             TailPoint(
@@ -191,10 +191,6 @@ class Particle:
     def _fade_particle(self) -> None:
         self.show_head = False
 
-        if not self.confetti_mode:
-            self.confetti_mode = True
-            self.confetti_age = 0
-
         if self.trail:
             self.trail.pop()
 
@@ -202,7 +198,7 @@ class Particle:
         for point in self.trail:
             point.age += 1
             if point.age >= point.change_after:
-                point.ch = random.choice(self.config.tail_frames)
+                point.ch = self.randomizer.rnd.choice(self.config.tail_frames)
                 point.age = 0
                 point.change_after = self.randomizer.random_change_delay(self.config.tail_change_base, self.config.tail_change_delta)
 
@@ -212,6 +208,6 @@ class Particle:
         
         self.head_age += 1
         if self.head_age >= self.head_change_after:
-            self.head_ch = random.choice(self.config.head_frames)
+            self.head_ch = self.randomizer.rnd.choice(self.config.head_frames)
             self.head_age = 0
             self.head_change_after = self.randomizer.random_change_delay(self.config.head_change_base, self.config.head_change_delta)
