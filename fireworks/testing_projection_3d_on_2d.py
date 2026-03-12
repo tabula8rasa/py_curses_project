@@ -8,6 +8,7 @@ CANVAS_WIDTH = 800
 CANVAS_HEIGHT = 800
 POINT_RADIUS = 5
 FPS = 60
+SCALE = min(CANVAS_WIDTH, CANVAS_HEIGHT) / 2
 
 root = tk.Tk()
 game = tk.Canvas(root, width=CANVAS_WIDTH, height=CANVAS_HEIGHT, bg=BACKGROUND, highlightthickness=0)
@@ -44,8 +45,8 @@ def project(point: Point) -> tuple[float, float]:
 
 
 def screen(x: float, y: float) -> tuple[float, float]:
-    x_screen = (x + 1) / 2 * game.winfo_width()
-    y_screen = (1 - (y + 1) / 2) * game.winfo_height()
+    x_screen = CANVAS_WIDTH / 2 + x * SCALE
+    y_screen = CANVAS_HEIGHT / 2 - y * SCALE
     return x_screen, y_screen
 
 def line(x1: float, y1: float, x2: float, y2: float):
