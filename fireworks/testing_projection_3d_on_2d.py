@@ -18,13 +18,11 @@ game.pack()
 def clear() -> None:
     game.delete("all")
 
-
 class Point:
     def __init__(self, x: float, y: float, z: float):
         self.x = x
         self.y = y
         self.z = z
-
 
 def rotate_xz(point: Point, angle: float) -> Point:
     c = math.cos(angle)
@@ -35,14 +33,11 @@ def rotate_xz(point: Point, angle: float) -> Point:
         z=point.x * s + point.z * c,
     )
 
-
 def translate_z(point: Point, dz: float) -> Point:
     return Point(point.x, point.y, point.z + dz)
 
-
 def project(point: Point) -> tuple[float, float]:
     return point.x / point.z, point.y / point.z
-
 
 def screen(x: float, y: float) -> tuple[float, float]:
     x_screen = CANVAS_WIDTH / 2 + x * SCALE
@@ -63,34 +58,35 @@ def render(x_screen: float, y_screen: float) -> None:
         outline=FOREGROUND,
     )
 
-
-angle = 0.0
-dz = 1.0
-
-
-def animate(points: list[Point], faces: list[list[int]]) -> None:
-    global angle, dz
-
+def make_animator(points: list[Point], faces: list[list[int]]):
+    angle = 0.0
+    dz = 1.0
     dt = 1 / FPS
-    # dz += 1*dt
-    angle += math.pi * dt
 
-    clear()
+    def animate() -> None:
+        nonlocal angle, dz, dt
 
-    #for point in points:
-        #render(*screen(*project(translate_z(rotate_xz(point, angle), dz))))
+        angle += math.pi * dt
+        #dz += 1*dt
 
-    for face in faces:
-        for i in range(0, len(face)):
-            a = points[face[i]]
-            b = points[face[(i+1)%len(face)]]
-            line(
-                *screen(*project(translate_z(rotate_xz(a, angle), dz))),
-                *screen(*project(translate_z(rotate_xz(b, angle), dz)))
-            )
+        clear()
+        
+        #for point in points:
+            #render(*screen(*project(translate_z(rotate_xz(point, angle), dz))))
 
-    root.after(int(1000 / FPS), animate, points, faces)
+        for face in faces:
+            for i in range(len(face)):
+                a = points[face[i]]
+                b = points[face[(i + 1) % len(face)]]
 
+                line(
+                    *screen(*project(translate_z(rotate_xz(a, angle), dz))),
+                    *screen(*project(translate_z(rotate_xz(b, angle), dz)))
+                )
+
+        root.after(int(1000 / FPS), animate)
+
+    return animate
 
 root.update_idletasks()
 
@@ -1070,5 +1066,6 @@ penger_faces = [
     [303, 317, 323],
 ]
 
-animate(penger_points, penger_faces)
+animate = make_animator(penger_points, penger_faces)
+animate()
 root.mainloop()
