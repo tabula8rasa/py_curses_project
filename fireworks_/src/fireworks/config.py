@@ -15,6 +15,15 @@ class Config():
 
     num_particles_min: int = 150                # число частиц
     num_particles_max: int = 200
+    
+    frame_for_firework: dict[str, float] = field(
+        default_factory=lambda: {
+            "x_left": 0.2,
+            "x_right": 0.8,
+            "y_top": 0.4,
+            "y_bottom": 0.6,
+        }
+    )
 
     head_frames: list[str] = field(
         default_factory=lambda: list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")

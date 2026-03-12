@@ -11,8 +11,14 @@ from ..ui.screen_mapper import ScreenMapper
 class Firework:
     def __init__(self, config: Config, setup: ScreenMapper, randomizer: Randomizer, stdscr: curses.window):
 
-        self.cx = random.randint(int(setup.world_width_m * 0.2), int(setup.world_width_m * 0.8))
-        self.cy = random.randint(int(setup.world_height_m * 0.4), int(setup.world_height_m * 0.6))
+        self.cx = random.randint(
+            int(setup.world_width_m * config.frame_for_firework["x_left"]), 
+            int(setup.world_width_m * config.frame_for_firework["x_right"])
+        )
+        self.cy = random.randint(
+            int(setup.world_height_m * config.frame_for_firework["y_top"]), 
+            int(setup.world_height_m * config.frame_for_firework["y_bottom"])
+        )
 
         self.color_scheme_bunch = randomizer.rnd.choice(config.firework_color_schemas)
 
