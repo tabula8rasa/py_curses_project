@@ -146,7 +146,6 @@ class Particle:
             if self.confetti_age >= self.confetti_lifetime:
                 self.alive = False
 
-
     def _update_confetti_motion(self) -> None:
         self.vx = 0.0
         self.vy = self.confetti_vy
@@ -361,7 +360,7 @@ class ScreenMapper:
 
     def to_screen_y(self, y: float) -> int:
         return int(round(y * self.config.scale_y))
-    
+
 
 class Randomizer:
     def __init__(self, config: Config, rnd: random.Random):
@@ -377,8 +376,8 @@ class Randomizer:
             self.config.death_base 
             + self.rnd.randint(-self.config.death_delta, self.config.death_delta)
         )
-    
-    
+
+
 class Timer:
     def __init__(self, config: Config):
         self.last = time.perf_counter()
@@ -410,7 +409,7 @@ class Firework:
         self.has_confetti: bool = randomizer.rnd.choice(config.has_or_not_confetti)
 
         self.particles: list[Particle] = self.generate_particles(config, setup, randomizer, stdscr)
-        
+
     def generate_particles(self, config: Config, setup: ScreenMapper, randomizer: Randomizer, stdscr: curses.window):
         particles: list[Particle] = []
 
@@ -438,7 +437,7 @@ class Firework:
                 continue
 
             particle.update_state()
-        
+
 
 def run(stdscr: curses.window) -> None:
 
@@ -479,7 +478,6 @@ def run(stdscr: curses.window) -> None:
             fireworks.append(Firework(config, setup, randomizer, stdscr))
             timer.counter = 0
             delay = int(config.time_delay_to_a_new_firework - (randomizer.rnd.random()*(config.time_delay_to_a_new_firework//2)))
-
 
 
 if __name__ == "__main__":
