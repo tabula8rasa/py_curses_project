@@ -1,5 +1,5 @@
 import random
-from fireworks.config import Config
+from ..config import Config
 
 class Randomizer:
     def __init__(self, config: Config, rnd: random.Random):

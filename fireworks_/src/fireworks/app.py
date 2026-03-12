@@ -2,12 +2,12 @@ from __future__ import annotations
 import curses
 import random
 
-from fireworks.config import config
-from fireworks.domain.firework import Firework
-from fireworks.services.randomizer import Randomizer
-from fireworks.services.timer import Timer
-from fireworks.ui.curses_setup import CursesSetup
-from fireworks.ui.screen_mapper import ScreenMapper
+from .config import config
+from .domain.firework import Firework
+from .services.randomizer import Randomizer
+from .services.timer import Timer
+from .ui.curses_setup import CursesSetup
+from .ui.screen_mapper import ScreenMapper
 
 
 def run(stdscr: curses.window) -> None:

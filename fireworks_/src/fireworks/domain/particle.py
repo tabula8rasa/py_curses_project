@@ -4,10 +4,10 @@ import curses
 from collections import deque
 import math
 
-from fireworks.config import Config
-from fireworks.domain.tail_point import TailPoint
-from fireworks.services.randomizer import Randomizer
-from fireworks.ui.screen_mapper import ScreenMapper
+from ..config import Config
+from ..domain.tail_point import TailPoint
+from ..services.randomizer import Randomizer
+from ..ui.screen_mapper import ScreenMapper
 
 class Particle:
     def __init__(self,

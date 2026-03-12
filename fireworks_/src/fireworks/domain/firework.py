@@ -3,10 +3,10 @@ import math
 import random
 import curses
 
-from fireworks.config import Config
-from fireworks.domain.particle import Particle
-from fireworks.services.randomizer import Randomizer
-from fireworks.ui.screen_mapper import ScreenMapper
+from ..config import Config
+from ..domain.particle import Particle
+from ..services.randomizer import Randomizer
+from ..ui.screen_mapper import ScreenMapper
 
 class Firework:
     def __init__(self, config: Config, setup: ScreenMapper, randomizer: Randomizer, stdscr: curses.window):

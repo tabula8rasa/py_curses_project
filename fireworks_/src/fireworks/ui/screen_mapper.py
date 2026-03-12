@@ -1,5 +1,5 @@
 import curses
-from fireworks.config import Config
+from ..config import Config
 
 class ScreenMapper:
     def __init__(self, stdscr: curses.window, config: Config):
