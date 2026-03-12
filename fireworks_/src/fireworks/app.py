@@ -17,8 +17,7 @@ def run(stdscr: curses.window) -> None:
     randomizer = Randomizer(config, random.Random())
 
     fireworks = [Firework(config, setup, randomizer, stdscr)]
-    timer = Timer(config)
-    delay = config.time_delay_to_a_new_firework
+    timer = Timer(dt=config.dt, delay=config.time_delay_to_a_new_firework)
 
     while True:
         timer.wait_frame()
@@ -42,7 +41,7 @@ def run(stdscr: curses.window) -> None:
             
         stdscr.refresh()
 
-        if timer.counter == delay:
+        if timer.counter == timer.delay:
             fireworks.append(Firework(config, setup, randomizer, stdscr))
             timer.counter = 0
-            delay = int(config.time_delay_to_a_new_firework - (randomizer.rnd.random()*(config.time_delay_to_a_new_firework//2)))
+            timer.delay = int(config.time_delay_to_a_new_firework - (randomizer.rnd.random()*(config.time_delay_to_a_new_firework//2)))

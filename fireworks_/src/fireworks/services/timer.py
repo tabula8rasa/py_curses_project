@@ -1,18 +1,18 @@
 import time
-from fireworks.config import Config
 
 class Timer:
-    def __init__(self, config: Config):
+    def __init__(self, *, dt: float, delay: int):
         self.last = time.perf_counter()
-        self.config = config
+        self.dt = dt
+        self.delay = delay
         self.counter = 0
 
     def wait_frame(self) -> None:
         now = time.perf_counter()
         elapsed = now - self.last
 
-        if elapsed < self.config.dt:
-            time.sleep(self.config.dt - elapsed)
+        if elapsed < self.dt:
+            time.sleep(self.dt - elapsed)
             now = time.perf_counter()
 
         self.last = now
